@@ -1,0 +1,68 @@
+{
+  "expo": {
+    "name": "zyntra",
+    "slug": "zyntra",
+    "owner": "godswill147",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/logo.png",
+    "scheme": "zyntra",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.godswill147.zyntra"
+    },
+    "android": {
+      "package": "com.godswill147.zyntra",
+      "minSdkVersion": 24,
+      "targetSdkVersion": 34,
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/full-logo.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/full-logo.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "backgroundColor": "#000000"
+          }
+        }
+      ],
+      "expo-web-browser",
+      "expo-font"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": false
+    },
+    "extra": {
+      "router": {},
+      "firebaseApiKey": "AIzaSyDUXk4YL0xvswi95UgAWe-13mp6O_2HdkU",
+      "firebaseAuthDomain": "zyntra-33112.firebaseapp.com",
+      "firebaseProjectId": "zyntra-33112",
+      "firebaseStorageBucket": "zyntra-33112.firebasestorage.app",
+      "firebaseMessagingSenderId": "181580130241",
+      "firebaseAppId": "1:181580130241:web:479b9e08575e3aecb2b140",
+      "firebaseMeasurementId": "G-0Q9NM4NV76",
+      "eas": {
+        "projectId": "a8871662-bb54-423d-81ca-a81675b13e73"
+      }
+    } 
+  }
+}
