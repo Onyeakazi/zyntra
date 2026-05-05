@@ -1,8 +1,9 @@
-import { Animated, StyleSheet, TextInput, View } from 'react-native'
+import { Animated, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native'
 import { useRef, useEffect, useState } from 'react'
 import TYPOGRAPHY from '../contants/typography'
+import { Ionicons } from "@expo/vector-icons";
 
-const FloatingInput = ({ placeholder, value = "", onChangeText, onFocus, onBlur }) => {
+const FloatingInput = ({ placeholder, value = "", onChangeText, onFocus, onBlur, style, secureTextEntry, showToggle, onToggle,  ...props }) => {
   const animatedTop = useRef(new Animated.Value(16)).current
   const animatedFontSize = useRef(new Animated.Value(16)).current
   const [isFocused, setIsFocused] = useState(false)
@@ -49,14 +50,28 @@ const FloatingInput = ({ placeholder, value = "", onChangeText, onFocus, onBlur 
         {placeholder}
       </Animated.Text>
 
-      <TextInput
-        style={styles.input}
-        value={value}
-        onChangeText={onChangeText}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-        placeholderTextColor="transparent"
-      />
+      <View style={[styles.inputWrapper, style]}>
+        <TextInput
+          style={styles.input}
+          value={value}
+          onChangeText={onChangeText}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          placeholderTextColor="transparent"
+          secureTextEntry={secureTextEntry}
+          {...props}
+        />
+
+        {showToggle && (
+          <TouchableOpacity onPress={onToggle}>
+            <Ionicons
+              name={secureTextEntry ? "eye-off-outline" : "eye-outline"}
+              size={20}
+              color="#666"
+            />
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   )
 }
@@ -79,12 +94,19 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   input: {
-    borderWidth: 1,
+    flex: 1,
     borderColor: '#cfcdcd',
     borderRadius: 10,
-    paddingHorizontal: 15,
     paddingVertical: 15,
     fontSize: 16,
     fontFamily: TYPOGRAPHY.regular,
+  },
+  inputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#cfcdcd",
+    borderRadius: 10,
+    paddingHorizontal: 15,
   },
 })

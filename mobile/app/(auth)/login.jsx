@@ -1,5 +1,6 @@
 import { Image, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { router } from 'expo-router'
+import Constants from 'expo-constants';
 import Logo from "../../assets/images/logo2.png";
 import TYPOGRAHPY from "../../contants/typography";
 import { useEffect, useState } from 'react';
@@ -13,40 +14,39 @@ import {
   signInWithEmailAndPassword,
   updateProfile
 } from "firebase/auth";
-import * as WebBrowser from "expo-web-browser";
-import * as Google from "expo-auth-session/providers/google";
+import { GoogleSignin, statusCodes } from 'expo-auth-session/providers/google';
+
 import { GoogleAuthProvider, signInWithCredential } from "firebase/auth";
 
-WebBrowser.maybeCompleteAuthSession();
+// Check if running in Expo Go
+const isExpoGo = Constants.expoVersion !== undefined && !Constants.easBuildId;
 
-
+// Configure Google Sign-In (only if not in Expo Go)
+if (!isExpoGo) {
+  GoogleSignin.configure({
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    forceCodeForRefreshToken: false,
+    offlineAccess: true,
+  });
+}
 
 const login = () => {
-    const [request, response, promptAsync] = Google.useAuthRequest({
-        expoClientId: "181580130241-uqea35gj4g0u8tl9ndl34anigvkf955a.apps.googleusercontent.com",
-        webClientId: "181580130241-uqea35gj4g0u8tl9ndl34anigvkf955a.apps.googleusercontent.com",
-        androidClientId: "181580130241-b8p9dmn2bkb2bg1unrjsq0c59c6hi3av.apps.googleusercontent.com",
-    });
-
-    useEffect(() => {
-        if (response?.type === "success") {
-            const { id_token } = response.params;
-
-            const credential = GoogleAuthProvider.credential(id_token);
-
-            signInWithCredential(auth, credential)
-            .then(() => {
-                alert("Google login successful!");
-                router.push("/(tabs)");
-            })
-            .catch((error) => {
-                alert(error.message);
-            });
-        }
-    }, [response]);
-
     const [active, setActive] = useState("signin");
     const [isFocused, setIsFocused] = useState(false);
+    const [fullName, setFullName] = useState("");
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [fieldError, setFieldError] = useState({
+        fullName: false,
+        email: false,
+        password: false,
+        confirmPassword: false,
+    });
+    const [success, setSuccess] = useState(false);
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     const [signinData, setSigninData] = useState({
         email: "",
@@ -60,14 +60,115 @@ const login = () => {
         confirmPassword: "",
     });
 
+    // Handle Google Sign-In
+    const handleGoogleSignIn = async () => {
+        // Check if in Expo Go
+        if (isExpoGo) {
+            alert("Google Sign-In is not available in Expo Go.\n\nPlease use the built APK to test Google Sign-In.\n\nYou can still test email/password login here!");
+            return;
+        }
 
-    const handleSignup = async () => {
         try {
-            if (signupData.password !== signupData.confirmPassword) {
-                alert("Passwords do not match");
+            await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+            const userInfo = await GoogleSignin.signIn();
+            const { idToken } = userInfo.data;
+
+            if (!idToken) {
+                alert("Failed to get ID token");
                 return;
             }
 
+            // Sign into Firebase
+            const credential = GoogleAuthProvider.credential(idToken);
+            await signInWithCredential(auth, credential);
+
+            alert("Google login successful!");
+            router.push("/(tabs)");
+        } catch (error) {
+            if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+                alert("Sign in cancelled");
+            } else if (error.code === statusCodes.IN_PROGRESS) {
+                alert("Sign in in progress");
+            } else {
+                alert("Google Sign-In Error: " + error.message);
+            }
+        }
+    };
+
+    const handleSignup = async () => {
+        let errors = {
+            fullName: false,
+            email: false,
+            password: false,
+            confirmPassword: false,
+        };
+
+        let message = "";
+
+        // ALL FIELDS EMPTY
+        if (
+            !signupData.fullName.trim() &&
+            !signupData.email.trim() &&
+            !signupData.password.trim() &&
+            !signupData.confirmPassword.trim()
+        ) {
+            errors = {
+                fullName: true,
+                email: true,
+                password: true,
+                confirmPassword: true,
+            };
+
+            setFieldError(errors);
+            setError("Please fill all fields");
+            return;
+        }
+
+        if (!signupData.fullName.trim()) {
+            errors.fullName = true;
+            message = "Full name is required";
+        }
+
+        if (!signupData.email.trim()) {
+            errors.email = true;
+            message = message || "Email is required";
+        } else if (!/\S+@\S+\.\S+/.test(signupData.email)) {
+            errors.email = true;
+            message = message || "Enter a valid email";
+        }
+
+        if (!signupData.password.trim()) {
+            errors.password = true;
+            message = message || "Password is required";
+        } else if (signupData.password.length < 6) {
+            errors.password = true;
+            message = message || "Password should be at least 6 characters";
+        }
+
+        if (!signupData.confirmPassword.trim()) {
+            errors.confirmPassword = true;
+            message = message || "Confirm your password";
+        } else if (signupData.password !== signupData.confirmPassword) {
+            errors.confirmPassword = true;
+            message = message || "Passwords do not match";
+        }
+
+        setFieldError(errors);
+
+        if (
+            errors.fullName ||
+            errors.email ||
+            errors.password ||
+            errors.confirmPassword
+        ) {
+            setError(message || "Please fix the errors");
+            return;
+        }
+
+        setError("");
+        setLoading(true);
+
+        try {
             const userCredential = await createUserWithEmailAndPassword(
                 auth,
                 signupData.email,
@@ -78,15 +179,59 @@ const login = () => {
                 displayName: signupData.fullName,
             });
 
+            setSuccess(true);
             alert("Account created successfully!");
             router.push("/(tabs)");
-
         } catch (error) {
-            alert(error.message);
+            setError(error.message);
+        } finally {
+            setLoading(false);
         }
     };
 
     const handleSignin = async () => {
+        let errors = {
+            email: false,
+            password: false,
+        };
+
+        let message = "";
+
+        // ALL FIELDS EMPTY
+        if (!signinData.email.trim() && !signinData.password.trim()) {
+            errors.email = true;
+            errors.password = true;
+
+            setFieldError((prev) => ({ ...prev, ...errors }));
+            setError("Please fill all fields");
+            return;
+        }
+
+        // email validation
+        if (!signinData.email.trim()) {
+            errors.email = true;
+            message = "Email is required";
+        } else if (!/\S+@\S+\.\S+/.test(signinData.email)) {
+            errors.email = true;
+            message = "Enter a valid email";
+        }
+
+        // password validation
+        if (!signinData.password.trim()) {
+            errors.password = true;
+            message = message || "Password is required";
+        }
+
+        setFieldError((prev) => ({ ...prev, ...errors }));
+
+        if (errors.email || errors.password) {
+            setError(message || "Please fix the errors");
+            return;
+        }
+
+        setError("");
+        setLoading(true);
+
         try {
             await signInWithEmailAndPassword(
                 auth,
@@ -94,11 +239,13 @@ const login = () => {
                 signinData.password
             );
 
+            setSuccess(true);
             alert("Login successful!");
-            router.push("/(tabs)"); // or your main app screen
-
+            router.push("/(tabs)");
         } catch (error) {
-            alert(error.message);
+            setError(error.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -131,6 +278,7 @@ const login = () => {
                     <Text style={[styles.btn, active === "signup" && styles.activeText]}>Sign up</Text>
                 </TouchableOpacity>
             </View>
+
             <View style={styles.lines}></View>
             <View
                 style={[
@@ -150,18 +298,37 @@ const login = () => {
                         <FloatingInput
                             placeholder="Email"
                             value={signinData.email}
-                            onChangeText={(text) => setSigninData({...signinData, email: text})}
+                            onChangeText={(text) => {
+                                setEmail(text);
+                                setSigninData({...signinData, email: text});
+                                setFieldError({...fieldError, email: false});
+                                setError("");
+                            }}
                             onFocus={() => setIsFocused(true)}
                             onBlur={() => setIsFocused(false)}
+                            style={{borderColor: fieldError.email ? "red" : success ? "green" : "#ccc"}}
                         />
 
                         <FloatingInput
                             placeholder="Password"
                             value={signinData.password}
-                            onChangeText={(text) => setSigninData({...signinData, password: text})}
+                            onChangeText={(text) => {
+                                setPassword(text);
+                                setSigninData({...signinData, password: text});
+                                setFieldError({...fieldError, password: false});
+                                setError("");
+                            }}
                             onFocus={() => setIsFocused(true)}
                             onBlur={() => setIsFocused(false)}
+                            style={{borderColor: fieldError.password ? "red" : success ? "green" : "#ccc"}}
+                            secureTextEntry={!showConfirmPassword}
+                            showToggle
+                            onToggle={() => setShowConfirmPassword(!showConfirmPassword)}
                         />
+
+                        {error ? (
+                            <Text style={{color: "red", marginTop: 5, fontFamily: TYPOGRAHPY.regular}}>{error}</Text>
+                        ) : null}
 
                         <View>
                             <TouchableOpacity 
@@ -195,15 +362,7 @@ const login = () => {
                             textColor={"#656F78"}
                             icon={<GoogleIcon width={16} height={16}/>}
                             style={styles.authBtn}
-                            action={() => promptAsync()}
-                        />
-                        <Button 
-                            text={"Microsoft"}
-                            bgColor={"#FFFFFF"}
-                            textColor={"#656F78"}
-                            icon={<Microsoft width={16} height={16} />}
-                            style={styles.authBtn}
-                            action={() => promptAsync()}
+                            action={handleGoogleSignIn}
                         />
                     </View>
 
@@ -222,10 +381,12 @@ const login = () => {
 
                         <FloatingInput
                             placeholder="Full Name"
-                            value={signupData.name}
-                            onChangeText={(text) => setSignupData({...signupData, name: text})}
+                            value={signupData.fullName}
+                            onChangeText={(text) => setSignupData({...signupData, fullName: text})}
                             onFocus={() => setIsFocused(true)}
                             onBlur={() => setIsFocused(false)}
+                            style={{borderColor: fieldError.fullName ? "red" : success ? "green" : "#ccc"}}
+
                         />
 
                         <FloatingInput
@@ -234,6 +395,7 @@ const login = () => {
                             onChangeText={(text) => setSignupData({...signupData, email: text})}
                             onFocus={() => setIsFocused(true)}
                             onBlur={() => setIsFocused(false)}
+                            style={{borderColor: fieldError.email ? "red" : success ? "green" : "#ccc"}}
                         />
 
                         <FloatingInput
@@ -242,6 +404,10 @@ const login = () => {
                             onChangeText={(text) => setSignupData({...signupData, password: text})}
                             onFocus={() => setIsFocused(true)}
                             onBlur={() => setIsFocused(false)}
+                            style={{borderColor: fieldError.password ? "red" : success ? "green" : "#ccc"}}
+                            secureTextEntry={!showConfirmPassword}
+                            showToggle
+                            onToggle={() => setShowConfirmPassword(!showConfirmPassword)}
                         />
 
                         <FloatingInput
@@ -250,8 +416,16 @@ const login = () => {
                             onChangeText={(text) => setSignupData({...signupData, confirmPassword: text})}
                             onFocus={() => setIsFocused(true)}
                             onBlur={() => setIsFocused(false)}
+                            style={{borderColor: fieldError.confirmPassword ? "red" : success ? "green" : "#ccc"}}
+                            secureTextEntry={!showConfirmPassword}
+                            showToggle
+                            onToggle={() => setShowConfirmPassword(!showConfirmPassword)}
                         />
                     </View>
+
+                    {error ? (
+                        <Text style={{color: "red", marginTop: 5, fontFamily: TYPOGRAHPY.regular}}>{error}</Text>
+                    ) : null}
 
                     <View style={{marginTop: 40}}>
                         <Button 
@@ -276,15 +450,7 @@ const login = () => {
                             textColor={"#656F78"}
                             icon={<GoogleIcon width={16} height={16}/>}
                             style={styles.authBtn}
-                            action={() => promptAsync()}
-                        />
-                        <Button 
-                            text={"Microsoft"}
-                            bgColor={"#FFFFFF"}
-                            textColor={"#656F78"}
-                            icon={<Microsoft width={16} height={16} />}
-                            style={styles.authBtn}
-                            action={() => promptAsync()}
+                            action={handleGoogleSignIn}
                         />
                     </View>
 
@@ -338,16 +504,14 @@ const styles = StyleSheet.create({
     },
 
     label: {
-        // position: "absolute",
         left: 12,
-        // top: 18,
         color: "#999",
     },
 
     labelActive: {
         top: -3,
         fontSize: 12,
-        backgroundColor: "#fff", // matches your screen
+        backgroundColor: "#fff",
         paddingHorizontal: 4,
     },
 
@@ -358,17 +522,6 @@ const styles = StyleSheet.create({
 
     inputField: {
         marginTop: 30,
-    },
-
-    input: {
-        borderWidth: 1,
-        borderColor: "#cfcdcd",
-        borderRadius: 10,
-        paddingHorizontal: 15,
-        paddingVertical: 15,
-        fontSize: 16,
-        fontFamily: TYPOGRAHPY.regular,
-        marginVertical: 10
     },
 
     authBtn: {

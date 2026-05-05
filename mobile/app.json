@@ -19,9 +19,9 @@
       "targetSdkVersion": 34,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/images/logo.png",
+        "backgroundImage": "./assets/images/icon-only.png",
+        "monochromeImage": "./assets/images/icon-only.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
@@ -45,7 +45,8 @@
         }
       ],
       "expo-web-browser",
-      "expo-font"
+      "expo-font",
+      
     ],
     "experiments": {
       "typedRoutes": true,
