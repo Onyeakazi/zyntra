@@ -1,57 +1,94 @@
-import { Dimensions, Image, StyleSheet, Text, View } from 'react-native'
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Like from "../assets/vectors/like.svg";
 import Message from "../assets/vectors/message.svg";
 import Share from "../assets/vectors/share.svg";
 import Saved from "../assets/vectors/save.svg";
-
-const { width } = Dimensions.get("screen");
+import { useState } from 'react';
 
 const Feed = ({ item }) => {
+  const [expanded, setExpanded] = useState(false);
+  const [showMore, setShowMore] = useState(false);
+
   return (
     <View style={styles.container}>
+
+      {/* Header */}
       <View style={styles.feedHeader}>
-        <Image 
-          source={item.user.profilePic} 
-          style={{ width: 40, height: 40, borderRadius: 20 }} 
+        <Image
+          source={item.user.profilePic}
+          style={styles.profile}
         />
+
         <View style={styles.feedInfo}>
           <Text style={styles.name}>{item.user.name}</Text>
           <Text style={styles.time}>{item.time}</Text>
         </View>
       </View>
 
+      {/* Content */}
       <View style={styles.feedContent}>
-        <Text>{item.content}</Text>
-        <Image 
-          source={item.image} 
-          style={{ width: "100%", height: 200, borderRadius: 10, marginTop: 10 }} 
+
+        <Text
+          numberOfLines={expanded ? undefined : 3}
+          style={styles.contentText}
+          onTextLayout={(e) => {
+            if (!expanded && !showMore) {
+              setShowMore(e.nativeEvent.lines.length >= 3);
+            }
+          }}
+        >
+          {item.content}
+        </Text>
+
+        {/* Show button ONLY if text exceeds 3 lines */}
+        {showMore && (
+          <TouchableOpacity onPress={() => setExpanded(!expanded)}>
+            <Text style={styles.seeMore}>
+              {expanded ? "see less" : "see more"}
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        <Image
+          source={item.image}
+          style={styles.feedImage}
           resizeMode="cover"
         />
+
       </View>
 
+      {/* Footer */}
       <View style={styles.feedFooter}>
+
         <View style={styles.reactions}>
+
           <View style={styles.likes}>
             <Like width={24} height={24} />
             <Text>{item.likes}</Text>
           </View>
+
           <View style={styles.comments}>
             <Message width={24} height={24} />
             <Text>{item.comments}</Text>
           </View>
+
           <View style={styles.share}>
             <Share width={24} height={24} />
           </View>
+
         </View>
+
         <View style={styles.save}>
           <Saved width={24} height={24} />
         </View>
-      </View>
-    </View>
-  )
-}
 
-export default Feed
+      </View>
+
+    </View>
+  );
+};
+
+export default Feed;
 
 const styles = StyleSheet.create({
   container: {
@@ -60,54 +97,88 @@ const styles = StyleSheet.create({
     borderColor: "#e0e0e0",
     borderRadius: 10,
     padding: 15,
+    overflow: "hidden",
   },
+
   feedHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     marginBottom: 10,
   },
+
+  profile: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+
   feedInfo: {
     gap: 3,
   },
+
   name: {
     fontWeight: "bold",
     fontSize: 14,
   },
+
   time: {
     fontSize: 12,
     color: "#a0a0a0",
   },
+
   feedContent: {
     marginBottom: 10,
   },
+
+  contentText: {
+    lineHeight: 22,
+  },
+
+  seeMore: {
+    color: "#888",
+    marginTop: 4,
+  },
+
+  feedImage: {
+    width: "100%",
+    height: 200,
+    borderRadius: 10,
+    marginTop: 10,
+  },
+
   feedFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginTop: 10,
   },
+
   reactions: {
     flexDirection: "row",
     gap: 15,
     alignItems: "center",
   },
+
   likes: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
   },
+
   comments: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
   },
+
   share: {
     flexDirection: "row",
     alignItems: "center",
   },
+
   save: {
     flexDirection: "row",
     alignItems: "center",
   },
-})
+});

@@ -23,12 +23,12 @@ const styles = StyleSheet.create({
     },
 
     storyRing: {
-        width: 65,
-        height: 65,
+        width: 63,
+        height: 63,
 
-        borderWidth: 2,
+        borderWidth: 2.5,
         borderRadius: 39,
-        borderStyle: "dotted",
+        borderStyle: "solid",
         borderColor: COLORS.accent,
         justifyContent: "center",
         alignItems: "center",

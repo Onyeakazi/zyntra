@@ -29,7 +29,7 @@ export default function Index() {
     {
       id: "1",
       user: { name: "Godswill Chiemena", profilePic: require("../../assets/images/prof.jpeg") },
-      content: "Had a great day coding.!",
+      content: "Had a great day coding, learned a lot about React Native! Looking forward to building more awesome apps. asdasdfndfasdknfasdkfd sldfasd ksds skdfs kdksndn kflndfij dasdfweudc sd sdfasd gxgxcfcc #ReactNative #MobileDevelopment",
       time: "2:30 PM",
       image: require("../../assets/images/feed1.png"),
       likes: 120,
@@ -60,7 +60,7 @@ export default function Index() {
       {/* Logo */}
       <View style={styles.logoContainer}>
         <Image
-          source={require("../../assets/images/logo1.png")}
+          source={require("../../assets/images/brand.png")}
           style={{ width: logoWidth, height: logoWidth * 0.3, resizeMode: "contain" }}
         />
         <View style={styles.logoIcons}>
