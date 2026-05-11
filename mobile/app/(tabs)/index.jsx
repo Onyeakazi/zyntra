@@ -32,8 +32,8 @@ export default function Index() {
       content: "Had a great day coding, learned a lot about React Native! Looking forward to building more awesome apps. asdasdfndfasdknfasdkfd sldfasd ksds skdfs kdksndn kflndfij dasdfweudc sd sdfasd gxgxcfcc #ReactNative #MobileDevelopment",
       time: "2:30 PM",
       image: require("../../assets/images/feed1.png"),
-      likes: 120,
-      comments: 45
+      likes: "1.1m",
+      comments: "11m"
     },
     {
       id: "2",
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
   storyWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    marginHorizontal: scale(-15),
+    marginHorizontal: scale(-8),
   },
 
   uploadContainer: {
