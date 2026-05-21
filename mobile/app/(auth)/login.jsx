@@ -2,7 +2,7 @@ import { Image, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View }
 import { router } from 'expo-router'
 import Constants from 'expo-constants';
 import Logo from "../../assets/images/logo2.png";
-import TYPOGRAHPY from "../../contants/typography";
+import TYPOGRAHPY from "../../constants/typography";
 import { useEffect, useState } from 'react';
 import Button from '../../components/Button';
 import GoogleIcon from "../../assets/vectors/google.svg";

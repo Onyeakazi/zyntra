@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import COLORS from '../contants/colors';
+import COLORS from '../constants/colors';
 import { onboardingData } from '../data/onboarding';
 import { useRef } from 'react';
 import Logo from '../assets/images/logo1.png';

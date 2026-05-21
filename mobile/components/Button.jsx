@@ -1,11 +1,42 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import TYPOGRAPHY from '../contants/typography'
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import TYPOGRAPHY from '../constants/typography'
 
-const Button = ({bgColor, text, action, textColor, icon, style}) => {
+const Button = ({
+  bgColor,
+  text,
+  action,
+  textColor,
+  icon,
+  style,
+  loading = false,
+  disabled = false,
+}) => {
+
+  const isDisabled = loading || disabled;
+
   return (
-    <TouchableOpacity onPress={action} style={[styles.btn, { backgroundColor: bgColor }, style]}>
-        {icon && <View style={{ marginRight: 8 }}>{icon}</View>}
-        <Text style={[styles.text, { color: textColor }]}>{text}</Text>
+    <TouchableOpacity
+      activeOpacity={0.8}
+      disabled={isDisabled}
+      onPress={action}
+      style={[
+        styles.btn,
+        { backgroundColor: bgColor },
+        style,
+        isDisabled && { opacity: 0.7 }
+      ]}
+    >
+      {loading ? (
+        <ActivityIndicator color={textColor || "#fff"} />
+      ) : (
+        <>
+          {icon && <View style={{ marginRight: 8 }}>{icon}</View>}
+
+          <Text style={[styles.text, { color: textColor }]}>
+            {text}
+          </Text>
+        </>
+      )}
     </TouchableOpacity>
   )
 }
@@ -13,16 +44,19 @@ const Button = ({bgColor, text, action, textColor, icon, style}) => {
 export default Button
 
 const styles = StyleSheet.create({
-    btn: {
-        paddingVertical: 20,
-        borderRadius: 15,
-        backgroundColor: "#000000"
-    },
+  btn: {
+    paddingVertical: 20,
+    borderRadius: 15,
+    backgroundColor: "#000000",
+    justifyContent: "center",
+    alignItems: "center",
+    flexDirection: "row",
+  },
 
-    text: {
-        textAlign: "center",
-        color: "#FFFFFF",
-        fontFamily: TYPOGRAPHY.medium,
-        fontSize: 16
-    }
+  text: {
+    textAlign: "center",
+    color: "#FFFFFF",
+    fontFamily: TYPOGRAPHY.medium,
+    fontSize: 16
+  }
 })

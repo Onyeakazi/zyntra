@@ -4,7 +4,7 @@ import AddUser from "../../assets/vectors/addUser.svg";
 import Job from "../../assets/vectors/briefcase.svg";
 import Community from "../../assets/vectors/community.svg";
 import Profile from "../../assets/vectors/profileImg.svg";
-import COLORS from "../../contants/colors";
+import COLORS from "../../constants/colors";
 import { View } from "react-native";
 
 const _layout = () => {

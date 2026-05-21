@@ -1,154 +1,469 @@
-import { FlatList, Image, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import ScreenWrapper from '../../components/ScreenWrapper'
-import { StatusBar } from 'expo-status-bar'
-import { router } from 'expo-router'
-import { scale, verticalScale } from '../../utils/scale'
-import TYPOGRAPHY from '../../constants/typography'
-import Gear from "../../assets/vectors/gear.svg"
-import COLORS from '../../constants/colors'
-import { useState } from 'react'
-import Feed from '../../components/Feed'
+import {
+  FlatList,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  ActivityIndicator,
+} from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import { router } from "expo-router";
+import ScreenWrapper from "../../components/ScreenWrapper";
+import { StatusBar } from "expo-status-bar";
+import { scale, verticalScale } from "../../utils/scale";
+import TYPOGRAPHY from "../../constants/typography";
+import About from "../../assets/vectors/about.svg";
+import Work from "../../assets/vectors/work.svg";
+import Gear from "../../assets/vectors/gear.svg";
+import Email from "../../assets/vectors/email.svg";
+import Address from "../../assets/vectors/address.svg";
+import Education from "../../assets/vectors/education.svg";
+import Phone from "../../assets/vectors/phone.svg";
+import COLORS from "../../constants/colors";
+import { useState, useCallback, useEffect } from "react";
+import Feed from "../../components/Feed";
+import DetailsCard from "../../components/DetailsCard";
+import Button from "../../components/Button";
+import { auth } from "../../config/firebase";
+import { signOut } from "firebase/auth";
+import { supabase } from "../../lib/supabase";
 
-const profile = () => {
+const Profile = () => {
   const [active, setActive] = useState("Posts");
+  const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [feeds, setFeeds] = useState([]);
+  const [error, setError] = useState("");
+  const [isAuthChecked, setIsAuthChecked] = useState(false);
 
-  const feeds = [
+  // Check auth on mount
+  useEffect(() => {
+    const user = auth.currentUser;
+
+    setIsAuthChecked(true);
+
+    if (user) {
+      fetchUserData();
+    } else {
+      setLoading(false);
+    }
+  }, []);
+
+  // Refresh when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      const user = auth.currentUser;
+
+      if (user) {
+        fetchUserData();
+      }
+    }, [])
+  );
+
+  // FIXED:
+  // Fetch posts ONLY after userData is available
+  useEffect(() => {
+    if (userData) {
+      fetchUserPosts();
+    }
+  }, [userData]);
+
+  const fetchUserData = async () => {
+    try {
+      const user = auth.currentUser;
+
+      if (!user) {
+        setError("Not authenticated");
+        setLoading(false);
+        return;
+      }
+
+      console.log("Fetching user profile...");
+
+      const { data, error: fetchError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", user.uid)
+        .single();
+
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      setUserData(data);
+
+      console.log("User data fetched");
+    } catch (err) {
+      console.error("Error fetching user data:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchUserPosts = async () => {
+    try {
+      const user = auth.currentUser;
+
+      if (!user) return;
+
+      console.log("Fetching posts...");
+
+      const { data, error: fetchError } = await supabase
+        .from("posts")
+        .select("*")
+        .eq("user_id", user.uid)
+        .order("created_at", { ascending: false });
+
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      console.log("Posts fetched");
+
+      // FIXED:
+      // Added safe fallback for undefined data
+      const formattedFeeds = (data || []).map((post) => ({
+        id: post.id.toString(),
+        user: {
+          name: userData?.full_name || "User",
+          profilePic:
+            userData?.avatar_url &&
+            userData.avatar_url.trim() !== ""
+              ? { uri: userData.avatar_url }
+              : require("../../assets/images/prof.jpeg"),
+          },
+          content: post.content,
+          time: new Date(post.created_at).toLocaleTimeString(),
+          image: post.image_url ? { uri: post.image_url } : null,
+          likes: "0",
+          comments: "0",
+        }));
+
+      setFeeds(formattedFeeds);
+    } catch (err) {
+      console.error("Error fetching posts:", err);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+
+      setUserData(null);
+      setFeeds([]);
+      setError("You have been logged out");
+
+      router.replace("/(auth)/login");
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
+  };
+
+
+
+  const details = [
     {
       id: "1",
-      user: { name: "Godswill Chiemena", profilePic: require("../../assets/images/prof.jpeg") },
-      content: "Had a great day coding, learned a lot about React Native! Looking forward to building more awesome apps. asdasdfndfasdknfasdkfd sldfasd ksds skdfs kdksndn kflndfij dasdfweudc sd sdfasd gxgxcfcc #ReactNative #MobileDevelopment",
-      time: "2:30 PM",
-      image: require("../../assets/images/feed1.png"),
-      likes: "1.1m",
-      comments: "11m"
+      icon: <Email width={scale(25.94)} height={scale(25.94)} />,
+      title: "Email",
+      description: userData?.email || "No email added yet",
     },
     {
       id: "2",
-      user: { name: "Jane Smith", profilePic: require("../../assets/images/profile.png") },
-      content: "Loving the new cafe in town!",
-      time: "1:15 PM",
-      image: require("../../assets/images/feed2.png"),
-      likes: 85,
-      comments: 30
+      icon: <About width={scale(25.94)} height={scale(25.94)} />,
+      title: "About",
+      description: userData?.bio || "No bio added yet",
+    },
+     {
+      id: "3",
+      icon: <Phone width={scale(25.94)} height={scale(25.94)} />,
+      title: "Phone",
+      description: userData?.phone || "No phone added yet",
     },
     {
-      id: "3",
-      user: { name: "David Lee", profilePic: require("../../assets/images/profile.png") },
-      content: "Just finished a marathon, feeling accomplished!",
-      time: "12:00 PM",
-      image: require("../../assets/images/feed1.png"),
-      likes: 200,
-      comments: 60
-    }
+      id: "4",
+      icon: <Work width={scale(25.94)} height={scale(25.94)} />,
+      title: "Work",
+      description: "Software Engineer",
+    },
+     {
+      id: "5",
+      icon: <Education width={scale(25.94)} height={scale(25.94)} />,
+      title: "Education",
+      description: userData?.education || "No education added yet",
+    },
   ];
 
-  return (
-    <ScreenWrapper>
-        <StatusBar style="dark" />
+  const dataToRender = active === "Posts" ? feeds : details;
 
-        <View style={styles.header}>
-
-          {/* Banner */}
-          <View style={styles.banner}>
-            <Image
-              source={require("../../assets/images/WhatsApp Image 2026-03-16 at 8.33.31 AM.jpeg")}
-              style={styles.bannerImg}
-            />
-          </View>
-
-          {/* Profile Image */}
-          <View style={styles.profileImageContainer}>
-            <Image
-              source={require("../../assets/images/prof.jpeg")}
-              style={styles.profImg}
-            />
-          </View>
+  // FIXED:
+  // Better loading condition
+  if (loading) {
+    return (
+      <ScreenWrapper>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Loading profile...</Text>
         </View>
+      </ScreenWrapper>
+    );
+  }
 
-        {/* Details */}
-        <View style={styles.details}>
-          <Text style={styles.name}>Godswill Berry</Text>
-          <Text style={styles.username}>@eze_berry</Text>
-          <Text style={styles.bio}>Software Engineer</Text>
-        </View>
+  // Show error if not logged in
+  if (!userData && isAuthChecked && !auth.currentUser) {
+    return (
+      <ScreenWrapper>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>❌ Not Logged In</Text>
 
-        {/* Settings */}
-        <View style={styles.settings}>
-          <Pressable style={styles.editBtn}>
-            <Text style={styles.settingText}>EDIT PROFILE</Text>
-          </Pressable>
+          <Text style={styles.errorSubText}>
+            Please login to view your profile
+          </Text>
 
-          <Pressable style={styles.settingIcon}>
-            <Gear width={scale(25.94)} height={scale(25.94)} />
-          </Pressable>
-        </View>
-
-        <View style={{paddingHorizontal: 15}}>
-          {/* Stats */}
-          <View style={styles.stats}>
-            <View style={styles.stat}>
-              <Text style={styles.statNumber}>100</Text>
-              <Text style={styles.statText}>Post</Text>
-            </View>
-
-            <View style={styles.lines}/>
-
-            <View style={styles.stat}>
-              <Text style={styles.statNumber}>120</Text>
-              <Text style={styles.statText}>Photos</Text>
-            </View>
-
-            <View style={styles.lines}/>
-
-            <View style={styles.stat}>
-              <Text style={styles.statNumber}>10k</Text>
-              <Text style={styles.statText}>Followers</Text>
-            </View>
-
-            <View style={styles.lines}/>
-
-            <View style={styles.stat}>
-              <Text style={styles.statNumber}>600</Text>
-              <Text style={styles.statText}>Following</Text>
-            </View>
-          </View>
-        </View>
-
-        <View>
-          <View style={styles.profileBtns}>
-            <TouchableOpacity style={styles.tabBtn} onPress={()=> setActive("Posts")}>
-              <Text style={[styles.btn, active === "Posts" && styles.btnActive]}>Posts</Text>
-              {active === "Posts" && (
-                <View style={styles.activeIndicator} />
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.tabBtn} onPress={()=> setActive("Details")}>
-              <Text style={[styles.btn, active === "Details" && styles.btnActive]}>Details</Text>
-              {active === "Details" && (
-                <View style={styles.activeIndicator} />
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {active === "Posts" && (
-          <FlatList
-            data={feeds}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => <Feed item={item} />}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 15, paddingBottom: 100 }}
+          <Button
+            text="Go to Login"
+            action={() => router.push("/(auth)/login")}
+            bgColor={COLORS.primary}
+            textColor="#fff"
+            style={{ marginTop: 20 }}
           />
-        )}
+        </View>
+      </ScreenWrapper>
+    );
+  }
 
+  // Show error if failed to load profile
+  if (!userData && isAuthChecked && auth.currentUser) {
+    return (
+      <ScreenWrapper>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}> Failed to load profile</Text>
+
+          <Text style={styles.errorSubText}>{error}</Text>
+
+          <Button
+            text="Logout"
+            action={handleLogout}
+            bgColor={COLORS.primary}
+            textColor="#fff"
+            style={{ marginTop: 20 }}
+          />
+        </View>
+      </ScreenWrapper>
+    );
+  }
+
+  return (
+    
+    <ScreenWrapper>
+      <StatusBar style="dark" />
+
+      <FlatList
+        data={dataToRender}
+        keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingBottom: 100,
+        }}
+        renderItem={({ item }) =>
+          active === "Posts" ? (
+            <Feed item={item} />
+          ) : (
+            <DetailsCard
+              icon={item.icon}
+              title={item.title}
+              description={item.description}
+            />
+          )
+        }
+        ListHeaderComponent={
+          userData ? (
+            <>
+              {/* HEADER */}
+              <View style={styles.header}>
+                <View style={styles.banner}>
+                 <Image
+  source={
+    userData?.banner_url &&
+    userData.banner_url.trim() !== ""
+      ? { uri: userData.banner_url }
+      : require("../../assets/images/WhatsApp Image 2026-03-16 at 8.33.31 AM.jpeg")
+  }
+  style={styles.bannerImg}
+/>
+                </View>
+
+                <View style={styles.profileImageContainer}>
+                  <Image
+  source={
+    userData?.avatar_url &&
+    userData.avatar_url.trim() !== ""
+      ? { uri: userData.avatar_url }
+      : require("../../assets/images/prof.jpeg")
+  }
+  style={styles.profImg}
+/>
+                </View>
+              </View>
+
+              {/* DETAILS */}
+              <View style={styles.details}>
+                <Text style={styles.name}>{userData?.full_name}</Text>
+
+                <Text style={styles.username}>
+                  @{userData?.username}
+                </Text>
+
+                <Text style={styles.bio}>
+                  {userData?.bio || "No bio"}
+                </Text>
+              </View>
+
+              {/* SETTINGS */}
+              <View style={styles.settings}>
+                <Pressable
+                  style={styles.editBtn}
+                  onPress={() => router.push("/editprofile")}
+                >
+                  <Text style={styles.settingText}>EDIT PROFILE</Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.settingIcon}
+                  onPress={handleLogout}
+                >
+                  <Gear width={scale(25.94)} height={scale(25.94)} />
+                </Pressable>
+              </View>
+
+              {/* STATS */}
+              <View style={{ paddingHorizontal: 15 }}>
+                <View style={styles.stats}>
+                  <View style={styles.stat}>
+                    <Text style={styles.statNumber}>
+                      {feeds.length}
+                    </Text>
+
+                    <Text style={styles.statText}>Post</Text>
+                  </View>
+
+                  <View style={styles.lines} />
+
+                  <View style={styles.stat}>
+                    <Text style={styles.statNumber}>
+                      {userData?.posts_count || 0}
+                    </Text>
+
+                    <Text style={styles.statText}>Photos</Text>
+                  </View>
+
+                  <View style={styles.lines} />
+
+                  <View style={styles.stat}>
+                    <Text style={styles.statNumber}>
+                      {userData?.followers_count || 0}
+                    </Text>
+
+                    <Text style={styles.statText}>Followers</Text>
+                  </View>
+
+                  <View style={styles.lines} />
+
+                  <View style={styles.stat}>
+                    <Text style={styles.statNumber}>
+                      {userData?.following_count || 0}
+                    </Text>
+
+                    <Text style={styles.statText}>Following</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* TABS */}
+              <View style={styles.profileBtns}>
+                <Pressable
+                  style={styles.tabBtn}
+                  onPress={() => setActive("Posts")}
+                >
+                  <Text
+                    style={[
+                      styles.btn,
+                      active === "Posts" && styles.btnActive,
+                    ]}
+                  >
+                    Posts
+                  </Text>
+
+                  {active === "Posts" && (
+                    <View style={styles.activeIndicator} />
+                  )}
+                </Pressable>
+
+                <Pressable
+                  style={styles.tabBtn}
+                  onPress={() => setActive("Details")}
+                >
+                  <Text
+                    style={[
+                      styles.btn,
+                      active === "Details" && styles.btnActive,
+                    ]}
+                  >
+                    Details
+                  </Text>
+
+                  {active === "Details" && (
+                    <View style={styles.activeIndicator} />
+                  )}
+                </Pressable>
+              </View>
+            </>
+          ) : null
+        }
+      />
     </ScreenWrapper>
-  )
-}
+  );
+};
 
-export default profile
+export default Profile;
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  loadingText: {
+    marginTop: 10,
+    fontFamily: TYPOGRAPHY.regular,
+    fontSize: scale(14),
+    color: COLORS.primary,
+  },
+
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+
+  errorText: {
+    fontFamily: TYPOGRAPHY.semiBold,
+    fontSize: scale(16),
+    color: "red",
+    marginBottom: 10,
+  },
+
+  errorSubText: {
+    fontFamily: TYPOGRAPHY.regular,
+    fontSize: scale(12),
+    color: "#999",
+    textAlign: "center",
+  },
+
   tabBtn: {
     alignItems: "center",
     paddingBottom: verticalScale(10),
@@ -158,7 +473,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    gap: scale(100)
+    gap: scale(100),
+    marginTop: verticalScale(20),
   },
 
   activeIndicator: {
@@ -169,14 +485,14 @@ const styles = StyleSheet.create({
     width: scale(120),
   },
 
-  btn:{
+  btn: {
     fontFamily: TYPOGRAPHY.medium,
     fontSize: scale(16),
-    color: "#808080cc"
+    color: "#808080cc",
   },
 
   btnActive: {
-    color: COLORS.primary
+    color: COLORS.primary,
   },
 
   stats: {
@@ -188,31 +504,30 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: verticalScale(10),
     gap: scale(20),
-    marginVertical: scale(20)
+    marginVertical: scale(20),
   },
 
   stat: {
-    flexDirection: "column",
     justifyContent: "center",
-    alignItems: "center"
+    alignItems: "center",
   },
 
   statNumber: {
     fontFamily: TYPOGRAPHY.semiBold,
     fontSize: scale(18),
-    color: "#606073"
+    color: "#606073",
   },
 
   statText: {
     fontFamily: TYPOGRAPHY.regular,
     fontSize: scale(12),
-    color: "#000000"
+    color: "#000000",
   },
 
   lines: {
     width: scale(2),
     height: verticalScale(23),
-    backgroundColor: COLORS.gray
+    backgroundColor: COLORS.gray,
   },
 
   settings: {
@@ -220,7 +535,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     gap: scale(15),
-    marginTop: verticalScale(20)
+    marginTop: verticalScale(20),
   },
 
   editBtn: {
@@ -242,24 +557,23 @@ const styles = StyleSheet.create({
   settingText: {
     fontFamily: TYPOGRAPHY.semiBold,
     fontSize: scale(14),
-    color: "#606073"
+    color: "#606073",
   },
 
-  details:{
-    flexDirection: "column",
+  details: {
     justifyContent: "center",
-    alignItems: "center"
+    alignItems: "center",
   },
 
   name: {
     fontFamily: TYPOGRAPHY.semiBold,
-    fontSize: scale(28)
+    fontSize: scale(28),
   },
 
   bio: {
     fontFamily: TYPOGRAPHY.regular,
     fontSize: scale(14),
-    marginTop: 5
+    marginTop: 5,
   },
 
   username: {
@@ -302,5 +616,4 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: "#fff",
   },
-
-})
+});

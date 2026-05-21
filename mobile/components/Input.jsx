@@ -1,7 +1,8 @@
 import { Animated, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native'
 import { useRef, useEffect, useState } from 'react'
-import TYPOGRAPHY from '../contants/typography'
+import TYPOGRAPHY from '../constants/typography'
 import { Ionicons } from "@expo/vector-icons";
+import COLORS from '../constants/colors';
 
 const FloatingInput = ({ placeholder, value = "", onChangeText, onFocus, onBlur, style, secureTextEntry, showToggle, onToggle,  ...props }) => {
   const animatedTop = useRef(new Animated.Value(16)).current
@@ -87,7 +88,7 @@ const styles = StyleSheet.create({
   floatingPlaceholder: {
     position: 'absolute',
     left: 15,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.transparent,
     paddingHorizontal: 4,
     color: '#999',
     fontFamily: TYPOGRAPHY.regular,
