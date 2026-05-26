@@ -132,7 +132,7 @@ const Profile = () => {
             userData?.avatar_url &&
             userData.avatar_url.trim() !== ""
               ? { uri: userData.avatar_url }
-              : require("../../assets/images/prof.jpeg"),
+              : require("../../assets/images/default.png"),
           },
           content: post.content,
           time: new Date(post.created_at).toLocaleTimeString(),
@@ -284,15 +284,15 @@ const Profile = () => {
               {/* HEADER */}
               <View style={styles.header}>
                 <View style={styles.banner}>
-                 <Image
-  source={
-    userData?.banner_url &&
-    userData.banner_url.trim() !== ""
-      ? { uri: userData.banner_url }
-      : require("../../assets/images/WhatsApp Image 2026-03-16 at 8.33.31 AM.jpeg")
-  }
-  style={styles.bannerImg}
-/>
+                  <Image
+                    source={
+                      userData?.banner_url &&
+                      userData.banner_url.trim() !== ""
+                        ? { uri: userData.banner_url }
+                        : require("../../assets/images/image placeholder.jpeg")
+                    }
+                    style={styles.bannerImg}
+                  />
                 </View>
 
                 <View style={styles.profileImageContainer}>

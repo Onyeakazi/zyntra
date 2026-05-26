@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { initializeAuth, getReactNativePersistence, getAuth } from "firebase/auth";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -18,4 +19,19 @@ if (getApps().length === 0) {
   app = getApp();
 }
 
-export const auth = getAuth(app);
+// Safely get or initialize Auth to avoid 'auth/already-initialized' error on Hot Reload
+let authInstance;
+if (global.firebaseAuth) {
+  authInstance = global.firebaseAuth;
+} else {
+  try {
+    authInstance = initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage),
+    });
+    global.firebaseAuth = authInstance;
+  } catch (error) {
+    authInstance = getAuth(app);
+  }
+}
+
+export const auth = authInstance;

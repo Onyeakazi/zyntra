@@ -6,7 +6,6 @@ import TYPOGRAHPY from "../../constants/typography";
 import { useEffect, useState } from 'react';
 import Button from '../../components/Button';
 import GoogleIcon from "../../assets/vectors/google.svg";
-import Microsoft from "../../assets/vectors/microsoft.svg";
 import FloatingInput from '../../components/Input';
 import { auth } from "../../config/firebase";
 import { 
@@ -15,7 +14,7 @@ import {
   updateProfile
 } from "firebase/auth";
 import { GoogleSignin, statusCodes } from 'expo-auth-session/providers/google';
-
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { GoogleAuthProvider, signInWithCredential } from "firebase/auth";
 
 // Check if running in Expo Go
@@ -81,6 +80,8 @@ const login = () => {
             // Sign into Firebase
             const credential = GoogleAuthProvider.credential(idToken);
             await signInWithCredential(auth, credential);
+
+            await AsyncStorage.setItem("user_logged_in", "true");
 
             alert("Google login successful!");
             router.push("/(tabs)");
@@ -179,6 +180,8 @@ const login = () => {
                 displayName: signupData.fullName,
             });
 
+            await AsyncStorage.setItem("user_logged_in", "true");
+
             setSuccess(true);
             alert("Account created successfully!");
             router.push("/(tabs)");
@@ -238,6 +241,8 @@ const login = () => {
                 signinData.email,
                 signinData.password
             );
+
+            await AsyncStorage.setItem("user_logged_in", "true");
 
             setSuccess(true);
             alert("Login successful!");

@@ -13,6 +13,7 @@ import { onboardingData } from '../data/onboarding';
 import { useRef } from 'react';
 import Logo from '../assets/images/logo1.png';
 import { router } from 'expo-router';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width } = Dimensions.get('window');
 
@@ -21,6 +22,16 @@ const logoWidth = width * 0.4;
 
 export default function Onboarding() {
   const scrollX = useRef(new Animated.Value(0)).current;
+
+  const completeOnboarding = async (route) => {
+    try {
+      await AsyncStorage.setItem("hasSeenOnboarding", "true");
+
+      router.replace(route);
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -93,7 +104,7 @@ export default function Onboarding() {
 
                   <TouchableOpacity 
                       style={styles.button}
-                      onPress={()=> router.replace("/(auth)/signup")}
+                      onPress={()=> completeOnboarding("/(auth)/signup")}
                           
                       >
                       <Text style={styles.buttonText}>Join Now</Text>
@@ -101,7 +112,7 @@ export default function Onboarding() {
 
                   <TouchableOpacity 
                       style={styles.buttonOutline}
-                      onPress={()=> router.replace("/(auth)/login")}
+                      onPress={()=> completeOnboarding("/(auth)/login")}
                   >
                       <Text style={styles.buttonOutlineText}>Sign In</Text>
                   </TouchableOpacity>
