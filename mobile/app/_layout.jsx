@@ -37,11 +37,11 @@ export default function RootLayout() {
         // Check onboarding
         const seen = await AsyncStorage.getItem('hasSeenOnboarding');
         setHasSeenOnboarding(seen === 'true');
-        console.log('✅ Onboarding checked:', seen === 'true');
+        console.log('Onboarding checked:', seen === 'true');
 
         // Wait for Firebase Auth persistence to fully load from AsyncStorage
         await auth.authStateReady();
-        console.log('✅ Auth state ready! Current user:', auth.currentUser?.uid || 'No user');
+        console.log('Auth state ready! Current user:', auth.currentUser?.uid || 'No user');
 
         setUser(auth.currentUser);
         setAuthStateResolved(true);
@@ -49,7 +49,7 @@ export default function RootLayout() {
 
         // Subscribe to future auth updates (like logins/logouts)
         unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-          console.log('✅ Auth event:', currentUser?.uid || 'No user');
+          console.log('Auth event:', currentUser?.uid || 'No user');
           setUser(currentUser);
         });
       } catch (err) {

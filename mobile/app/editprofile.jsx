@@ -126,8 +126,19 @@ const EditProfile = () => {
 
             const formData = new FormData();
 
+            let cleanUri = imageUri;
+            try {
+              let decoded = decodeURIComponent(cleanUri);
+              while (decoded !== cleanUri) {
+                cleanUri = decoded;
+                decoded = decodeURIComponent(cleanUri);
+              }
+            } catch (e) {
+              // Safe fallback
+            }
+
             formData.append("file", {
-                uri: imageUri,
+                uri: cleanUri,
                 type: "image/jpeg",
                 name: "upload.jpg",
             });

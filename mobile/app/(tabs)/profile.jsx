@@ -136,7 +136,7 @@ const Profile = () => {
           },
           content: post.content,
           time: new Date(post.created_at).toLocaleTimeString(),
-          image: post.image_url ? { uri: post.image_url } : null,
+          image: post.media_url ? { uri: post.media_url } : null,
           likes: "0",
           comments: "0",
         }));
@@ -297,14 +297,14 @@ const Profile = () => {
 
                 <View style={styles.profileImageContainer}>
                   <Image
-  source={
-    userData?.avatar_url &&
-    userData.avatar_url.trim() !== ""
-      ? { uri: userData.avatar_url }
-      : require("../../assets/images/prof.jpeg")
-  }
-  style={styles.profImg}
-/>
+                    source={
+                      userData?.avatar_url &&
+                      userData.avatar_url.trim() !== ""
+                        ? { uri: userData.avatar_url }
+                        : require("../../assets/images/default.png")
+                    }
+                    style={styles.profImg}
+                  />
                 </View>
               </View>
 

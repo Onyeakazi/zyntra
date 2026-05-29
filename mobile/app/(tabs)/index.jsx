@@ -1,4 +1,4 @@
-import { Dimensions, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Dimensions, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator, RefreshControl } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import ScreenWrapper from "../../components/ScreenWrapper";
 import Search from "../../assets/vectors/search.svg";
@@ -6,14 +6,103 @@ import Notification from "../../assets/vectors/bell.svg";
 import Message from "../../assets/vectors/send.svg";
 import Img from "../../assets/vectors/img.svg";
 import Vid from "../../assets/vectors/videos.svg";
-import Att from "../../assets/vectors/link.svg"
+import Att from "../../assets/vectors/link.svg";
 import COLORS from "../../constants/colors";
 import TYPOGRAPHY from "../../constants/typography";
 import Story from "../../components/Story";
 import Feed from "../../components/Feed";
 import { moderateScale, scale, verticalScale } from "../../utils/scale";
+import { useEffect, useState, useCallback } from "react";
+import { supabase } from "../../lib/supabase";
+import { auth } from "../../config/firebase";
+import { router } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 
 export default function Index() {
+  const [avatar, setAvatar] = useState(null);
+  const [feeds, setFeeds] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Fetch avatar on mount
+  useEffect(() => {
+    const fetchAvatar = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("users")
+        .select("avatar_url")
+        .eq("id", user.uid)
+        .single();
+
+      if (!error && data?.avatar_url) {
+        setAvatar(data.avatar_url);
+      }
+    };
+
+    fetchAvatar();
+  }, []);
+
+  // Fetch feed dynamic data
+  const fetchFeed = async (showLoader = true) => {
+    if (showLoader) setLoading(true);
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      console.log("Fetching home feed posts...");
+      const { data, error } = await supabase
+        .from("home_feed")
+        .select("*")
+        .eq("viewer_id", user.uid)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      console.log("Feed fetched successfully, count:", data?.length || 0);
+
+      // Map the database View columns to feed item properties
+      const formattedFeeds = (data || []).map((post) => ({
+        id: post.post_id.toString(),
+        user: {
+          name: post.author_name || "User",
+          profilePic:
+            post.author_avatar && post.author_avatar.trim() !== ""
+              ? { uri: post.author_avatar }
+              : require("../../assets/images/prof.jpeg"),
+        },
+        content: post.content,
+        time: new Date(post.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        image: post.media_url ? { uri: post.media_url } : null,
+        likes: "0",
+        comments: "0",
+      }));
+
+      setFeeds(formattedFeeds);
+    } catch (err) {
+      console.error("Error fetching home feed:", err?.message || err);
+      if (err && typeof err === 'object') {
+        console.error("Error details:", JSON.stringify(err, null, 2));
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Automatically refresh feed when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      fetchFeed(feeds.length === 0);
+    }, [])
+  );
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchFeed(false);
+  };
+
   const { width } = Dimensions.get("screen");
   const logoWidth = width * 0.4;
 
@@ -23,36 +112,6 @@ export default function Index() {
     { id: "3", name: "Sarah", image: require("../../assets/images/profile.png") },
     { id: "4", name: "Daniel", image: require("../../assets/images/profile.png") },
     { id: "5", name: "Daniel", image: require("../../assets/images/profile.png") },
-  ];
-
-  const feeds = [
-    {
-      id: "1",
-      user: { name: "Godswill Chiemena", profilePic: require("../../assets/images/prof.jpeg") },
-      content: "Had a great day coding, learned a lot about React Native! Looking forward to building more awesome apps. asdasdfndfasdknfasdkfd sldfasd ksds skdfs kdksndn kflndfij dasdfweudc sd sdfasd gxgxcfcc #ReactNative #MobileDevelopment",
-      time: "2:30 PM",
-      image: require("../../assets/images/feed1.png"),
-      likes: "1.1m",
-      comments: "11m"
-    },
-    {
-      id: "2",
-      user: { name: "Jane Smith", profilePic: require("../../assets/images/profile.png") },
-      content: "Loving the new cafe in town!",
-      time: "1:15 PM",
-      image: require("../../assets/images/feed2.png"),
-      likes: 85,
-      comments: 30
-    },
-    {
-      id: "3",
-      user: { name: "David Lee", profilePic: require("../../assets/images/profile.png") },
-      content: "Just finished a marathon, feeling accomplished!",
-      time: "12:00 PM",
-      image: require("../../assets/images/feed1.png"),
-      likes: 200,
-      comments: 60
-    }
   ];
 
   const Header = () => (
@@ -71,32 +130,43 @@ export default function Index() {
       </View>
 
       {/* Upload Container */}
-      <View style={styles.uploadContainer}>
+      <Pressable
+        style={styles.uploadContainer}
+        onPress={() => router.push("/create-post")}
+      >
         <View style={styles.imgCont}>
-          <Image
-            source={require("../../assets/images/profile.png")}
-            style={{ width: 40, height: 40 }}
+          <Image 
+            source={
+              avatar
+                ? { uri: avatar }
+                : require("../../assets/images/default.png")
+            }
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+            }}
           />
           <Text style={{ fontFamily: TYPOGRAPHY.regular, fontSize: 18 }}>What's on your mind?</Text>
         </View>
 
         <View style={styles.uploads}>
-          <Pressable style={styles.links}>
+          <Pressable style={styles.links} onPress={() => router.push("/create-post")}>
             <Img width={19.5} height={19.5} />
             <Text style={styles.linkText}>Image</Text>
           </Pressable>
           <View style={styles.linkLine} />
-          <Pressable style={styles.links}>
+          <Pressable style={styles.links} onPress={() => router.push("/create-post")}>
             <Vid width={19.5} height={19.5} />
             <Text style={styles.linkText}>Videos</Text>
           </Pressable>
           <View style={styles.linkLine} />
-          <Pressable style={styles.links}>
+          <Pressable style={styles.links} onPress={() => router.push("/create-post")}>
             <Att width={19.5} height={19.5} />
             <Text style={styles.linkText}>Attachment</Text>
           </Pressable>
         </View>
-      </View>
+      </Pressable>
 
       {/* Stories */}
       <View style={styles.storyWrapper}>
@@ -114,6 +184,18 @@ export default function Index() {
     </View>
   );
 
+  // Full screen loading indicator on first boot
+  if (loading && feeds.length === 0) {
+    return (
+      <ScreenWrapper>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Loading feed...</Text>
+        </View>
+      </ScreenWrapper>
+    );
+  }
+
   return (
     <ScreenWrapper>
       <StatusBar style="dark" />
@@ -124,6 +206,20 @@ export default function Index() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={<Header />}
         contentContainerStyle={{ paddingHorizontal: 15, paddingBottom: 100 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[COLORS.primary]}
+            tintColor={COLORS.primary}
+          />
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No posts yet!</Text>
+            <Text style={styles.emptySubText}>Create a post or add connections to populate your feed.</Text>
+          </View>
+        }
       />
     </ScreenWrapper>
   );
@@ -191,5 +287,39 @@ const styles = StyleSheet.create({
     backgroundColor: "#a0a0a0",
     width: scale(2),
     height: verticalScale(16),
+  },
+
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  loadingText: {
+    marginTop: 10,
+    fontFamily: TYPOGRAPHY.medium,
+    fontSize: 16,
+    color: COLORS.primary,
+  },
+
+  emptyContainer: {
+    paddingVertical: 60,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  emptyText: {
+    fontSize: 18,
+    fontFamily: TYPOGRAPHY.semiBold,
+    color: "#444",
+  },
+
+  emptySubText: {
+    fontSize: 14,
+    fontFamily: TYPOGRAPHY.regular,
+    color: "#888",
+    textAlign: "center",
+    marginTop: 8,
+    paddingHorizontal: 20,
   },
 });

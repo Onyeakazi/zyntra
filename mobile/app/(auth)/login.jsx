@@ -1,6 +1,6 @@
 import { Image, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { router } from 'expo-router'
-import Constants from 'expo-constants';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import Logo from "../../assets/images/logo2.png";
 import TYPOGRAHPY from "../../constants/typography";
 import { useEffect, useState } from 'react';
@@ -8,25 +8,30 @@ import Button from '../../components/Button';
 import GoogleIcon from "../../assets/vectors/google.svg";
 import FloatingInput from '../../components/Input';
 import { auth } from "../../config/firebase";
+import { supabase } from "../../lib/supabase";
 import { 
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   updateProfile
 } from "firebase/auth";
-import { GoogleSignin, statusCodes } from 'expo-auth-session/providers/google';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { GoogleAuthProvider, signInWithCredential } from "firebase/auth";
 
 // Check if running in Expo Go
-const isExpoGo = Constants.expoVersion !== undefined && !Constants.easBuildId;
+const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 // Configure Google Sign-In (only if not in Expo Go)
 if (!isExpoGo) {
-  GoogleSignin.configure({
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    forceCodeForRefreshToken: false,
-    offlineAccess: true,
-  });
+  try {
+    const { GoogleSignin } = require('@react-native-google-signin/google-signin');
+    GoogleSignin.configure({
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+      forceCodeForRefreshToken: false,
+      offlineAccess: true,
+    });
+  } catch (error) {
+    console.warn("Failed to configure Google Sign-In:", error);
+  }
 }
 
 const login = () => {
@@ -68,6 +73,7 @@ const login = () => {
         }
 
         try {
+            const { GoogleSignin } = require('@react-native-google-signin/google-signin');
             await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
             const userInfo = await GoogleSignin.signIn();
             const { idToken } = userInfo.data;
@@ -79,13 +85,46 @@ const login = () => {
 
             // Sign into Firebase
             const credential = GoogleAuthProvider.credential(idToken);
-            await signInWithCredential(auth, credential);
+            const userCredential = await signInWithCredential(auth, credential);
+            const firebaseUser = userCredential.user;
+
+            // Check if user exists in Supabase
+            const { data: existingUser, error: checkError } = await supabase
+                .from("users")
+                .select("id")
+                .eq("id", firebaseUser.uid)
+                .single();
+
+            if (checkError || !existingUser) {
+                // Generate a clean and unique username
+                const baseUsername = firebaseUser.email 
+                    ? firebaseUser.email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase() 
+                    : "user";
+                const username = `${baseUsername}${Math.floor(100 + Math.random() * 900)}`;
+
+                const { error: supabaseError } = await supabase
+                    .from("users")
+                    .insert({
+                        id: firebaseUser.uid,
+                        email: firebaseUser.email || "",
+                        full_name: firebaseUser.displayName || "Google User",
+                        username: username,
+                        avatar_url: firebaseUser.photoURL || "",
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                    });
+
+                if (supabaseError) {
+                    console.error("Supabase insert error for Google user:", supabaseError);
+                }
+            }
 
             await AsyncStorage.setItem("user_logged_in", "true");
 
             alert("Google login successful!");
             router.push("/(tabs)");
         } catch (error) {
+            const { statusCodes } = require('@react-native-google-signin/google-signin');
             if (error.code === statusCodes.SIGN_IN_CANCELLED) {
                 alert("Sign in cancelled");
             } else if (error.code === statusCodes.IN_PROGRESS) {
@@ -179,6 +218,27 @@ const login = () => {
             await updateProfile(userCredential.user, {
                 displayName: signupData.fullName,
             });
+
+            // Generate unique username for Supabase
+            const baseUsername = signupData.email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+            const username = `${baseUsername}${Math.floor(100 + Math.random() * 900)}`;
+
+            // Create Supabase User Profile
+            const { error: supabaseError } = await supabase
+                .from("users")
+                .insert({
+                    id: userCredential.user.uid,
+                    email: signupData.email,
+                    full_name: signupData.fullName,
+                    username: username,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                });
+
+            if (supabaseError) {
+                console.error("Supabase insert error:", supabaseError);
+                throw new Error("Could not sync user profile to database: " + supabaseError.message);
+            }
 
             await AsyncStorage.setItem("user_logged_in", "true");
 
@@ -326,9 +386,9 @@ const login = () => {
                             onFocus={() => setIsFocused(true)}
                             onBlur={() => setIsFocused(false)}
                             style={{borderColor: fieldError.password ? "red" : success ? "green" : "#ccc"}}
-                            secureTextEntry={!showConfirmPassword}
+                            secureTextEntry={!showPassword}
                             showToggle
-                            onToggle={() => setShowConfirmPassword(!showConfirmPassword)}
+                            onToggle={() => setShowPassword(!showPassword)}
                         />
 
                         {error ? (
@@ -410,9 +470,9 @@ const login = () => {
                             onFocus={() => setIsFocused(true)}
                             onBlur={() => setIsFocused(false)}
                             style={{borderColor: fieldError.password ? "red" : success ? "green" : "#ccc"}}
-                            secureTextEntry={!showConfirmPassword}
+                            secureTextEntry={!showPassword}
                             showToggle
-                            onToggle={() => setShowConfirmPassword(!showConfirmPassword)}
+                            onToggle={() => setShowPassword(!showPassword)}
                         />
 
                         <FloatingInput
@@ -457,6 +517,15 @@ const login = () => {
                             style={styles.authBtn}
                             action={handleGoogleSignIn}
                         />
+                    </View>
+
+                    <View style={{flexDirection: "row", justifyContent: "center", marginTop: 30}}>
+                        <Text style={{fontFamily: TYPOGRAHPY.medium, fontSize: 16, color: "#656F78"}}>
+                            Already have an Account{" "}
+                            <Text onPress={() => setActive("signin")} style={{ color: "#5398F1" }}>
+                                Sign in
+                            </Text>
+                        </Text>
                     </View>
 
                 </View>

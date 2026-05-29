@@ -5,9 +5,31 @@ import Job from "../../assets/vectors/briefcase.svg";
 import Community from "../../assets/vectors/community.svg";
 import Profile from "../../assets/vectors/profileImg.svg";
 import COLORS from "../../constants/colors";
-import { View } from "react-native";
+import { Image, View } from "react-native";
+import { supabase } from "../../lib/supabase";
+import { useEffect, useState } from "react";
+import {auth} from "../../config/firebase";
 
 const _layout = () => {
+    const [avatar, setAvatar] = useState(null);
+
+    useEffect(()=> {
+        const fetchAvatar = async () => {
+            const user = auth.currentUser;
+            if(!user) return;
+
+            const {data, error} = await supabase.from("users")
+                .select("avatar_url")
+                .eq("id", user.uid)
+                .single();
+
+            if(!error && data?.avatar_url){
+                setAvatar(data.avatar_url);
+            }
+        };
+        fetchAvatar();
+    }, []);
+
   return (
     
     <Tabs
@@ -130,10 +152,17 @@ const _layout = () => {
                             borderRadius: 10,
                         }}
                     >
-                        <Profile
-                            width={24}
-                            height={24}
-                            color={focused ? "#5096F1" : COLORS.secondary}
+                        <Image 
+                            source={
+                                avatar
+                                ? { uri: avatar }
+                                : require("../../assets/images/default.png")
+                            }
+                            style={{
+                                width: 30,
+                                height: 30,
+                                borderRadius: 15,
+                            }}
                         />
                     </View>
                 )

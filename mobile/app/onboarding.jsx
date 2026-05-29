@@ -76,8 +76,8 @@ export default function Onboarding() {
                 )}
 
                 {index === 0 && (
-                  <View 
-                    style={{ 
+                  <View
+                    style={{
                       marginTop: 35, padding: 10,
                     }}
                   >
@@ -99,22 +99,22 @@ export default function Onboarding() {
                   <Text style={styles.title}>{item.title}</Text>
 
                   <Text style={styles.text}>
-                      {item.description}
+                    {item.description}
                   </Text>
 
-                  <TouchableOpacity 
-                      style={styles.button}
-                      onPress={()=> completeOnboarding("/(auth)/signup")}
-                          
-                      >
-                      <Text style={styles.buttonText}>Join Now</Text>
+                  <TouchableOpacity
+                    style={styles.button}
+                    onPress={() => completeOnboarding("/(auth)/login")}
+
+                  >
+                    <Text style={styles.buttonText}>Join Now</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity 
-                      style={styles.buttonOutline}
-                      onPress={()=> completeOnboarding("/(auth)/login")}
+                  <TouchableOpacity
+                    style={styles.buttonOutline}
+                    onPress={() => completeOnboarding("/(auth)/login")}
                   >
-                      <Text style={styles.buttonOutlineText}>Sign In</Text>
+                    <Text style={styles.buttonOutlineText}>Sign In</Text>
                   </TouchableOpacity>
                 </View>
               )}

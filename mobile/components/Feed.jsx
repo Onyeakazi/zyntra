@@ -1,4 +1,4 @@
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View, ScrollView, Dimensions } from 'react-native';
 import Like from "../assets/vectors/like.svg";
 import Message from "../assets/vectors/message.svg";
 import Share from "../assets/vectors/share.svg";
@@ -8,6 +8,15 @@ import { useState } from 'react';
 const Feed = ({ item }) => {
   const [expanded, setExpanded] = useState(false);
   const [showMore, setShowMore] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const cardWidth = Dimensions.get("window").width - 60;
+
+  const handleScroll = (event) => {
+    const scrollPosition = event.nativeEvent.contentOffset.x;
+    const index = Math.round(scrollPosition / cardWidth);
+    setActiveIndex(index);
+  };
 
   return (
     <View style={styles.container}>
@@ -49,11 +58,62 @@ const Feed = ({ item }) => {
           </TouchableOpacity>
         )}
 
-        <Image
-          source={item.image}
-          style={styles.feedImage}
-          resizeMode="cover"
-        />
+        {(() => {
+          const getImagesList = () => {
+            if (!item.image) return [];
+            if (Array.isArray(item.image)) return item.image;
+            if (item.image.uri && typeof item.image.uri === 'string' && item.image.uri.includes(',')) {
+              return item.image.uri.split(',').map(url => ({ uri: url }));
+            }
+            return [item.image];
+          };
+
+          const images = getImagesList();
+          if (images.length === 0) return null;
+
+          if (images.length === 1) {
+            return (
+              <Image
+                source={images[0]}
+                style={[styles.feedImage, { width: cardWidth }]}
+                resizeMode="cover"
+              />
+            );
+          }
+
+          return (
+            <View style={styles.carouselContainer}>
+              <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                style={styles.carouselScrollView}
+                onScroll={handleScroll}
+                scrollEventThrottle={16}
+              >
+                {images.map((img, index) => (
+                  <Image
+                    key={index}
+                    source={img}
+                    style={[styles.carouselImage, { width: cardWidth, height: 200 }]}
+                    resizeMode="cover"
+                  />
+                ))}
+              </ScrollView>
+              <View style={styles.dotsContainer}>
+                {images.map((_, index) => (
+                  <View 
+                    key={index} 
+                    style={[
+                      styles.dot, 
+                      activeIndex === index ? styles.activeDot : null
+                    ]} 
+                  />
+                ))}
+              </View>
+            </View>
+          );
+        })()}
 
       </View>
 
@@ -145,6 +205,44 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 10,
     marginTop: 10,
+  },
+
+  carouselContainer: {
+    width: "100%",
+    height: 200,
+    borderRadius: 10,
+    overflow: "hidden",
+    marginTop: 10,
+    position: "relative",
+  },
+
+  carouselScrollView: {
+    width: "100%",
+    height: "100%",
+  },
+
+  carouselImage: {
+    height: "100%",
+  },
+
+  dotsContainer: {
+    flexDirection: "row",
+    position: "absolute",
+    bottom: 10,
+    alignSelf: "center",
+    gap: 6,
+  },
+
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "rgba(255, 255, 255, 0.4)",
+    marginHorizontal: 1,
+  },
+  activeDot: {
+    backgroundColor: "#ffffff",
+    width: 12,
   },
 
   feedFooter: {
