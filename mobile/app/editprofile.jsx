@@ -264,7 +264,7 @@ const EditProfile = () => {
                 source={
                 banner
                     ? { uri: banner }
-                    : require("../assets/images/WhatsApp Image 2026-03-16 at 8.33.31 AM.jpeg")
+                    : require("../assets/images/image placeholder.jpeg")
                 }
                 style={styles.bannerImg}
             />
@@ -285,7 +285,7 @@ const EditProfile = () => {
                 source={
                     avatar
                     ? { uri: avatar }
-                    : require("../assets/images/prof.jpeg")
+                    : require("../assets/images/default.png")
                 }
                 style={styles.profileImg}
                 />

@@ -167,6 +167,12 @@ const _layout = () => {
                     </View>
                 )
             }}
+            listeners={({ navigation }) => ({
+                tabPress: (e) => {
+                    e.preventDefault();
+                    navigation.navigate("profile", { userId: undefined });
+                },
+            })}
         />
         
     </Tabs>

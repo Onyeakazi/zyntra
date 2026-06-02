@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import ScreenWrapper from "../../components/ScreenWrapper";
 import { StatusBar } from "expo-status-bar";
 import { scale, verticalScale } from "../../utils/scale";
@@ -30,14 +30,100 @@ import { signOut } from "firebase/auth";
 import { supabase } from "../../lib/supabase";
 
 const Profile = () => {
+  const { userId } = useLocalSearchParams();
+  const currentUserId = auth.currentUser?.uid;
+  const isOwnProfile = !userId || userId === currentUserId;
+
   const [active, setActive] = useState("Posts");
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [feeds, setFeeds] = useState([]);
   const [error, setError] = useState("");
   const [isAuthChecked, setIsAuthChecked] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState(null); // null, 'pending', 'accepted'
+  const [connectionInitiator, setConnectionInitiator] = useState(null); // who sent the request
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
 
-  // Check auth on mount
+  // Fetch connection status if not own profile
+  const fetchConnectionStatus = async () => {
+    if (isOwnProfile || !currentUserId || !userId) return;
+    try {
+      const { data, error } = await supabase
+        .from("connections")
+        .select("*")
+        .or(`and(user_id.eq.${currentUserId},friend_id.eq.${userId}),and(user_id.eq.${userId},friend_id.eq.${currentUserId})`)
+        .maybeSingle();
+
+      if (!error && data) {
+        setConnectionStatus(data.status);
+        setConnectionInitiator(data.user_id);
+      } else {
+        setConnectionStatus(null);
+        setConnectionInitiator(null);
+      }
+    } catch (err) {
+      console.error("Error fetching connection status:", err);
+    }
+  };
+
+  const handleToggleConnection = async () => {
+    if (isOwnProfile || !currentUserId || !userId) return;
+    try {
+      if (connectionStatus === "accepted") {
+        const { error } = await supabase
+          .from("connections")
+          .delete()
+          .or(`and(user_id.eq.${currentUserId},friend_id.eq.${userId}),and(user_id.eq.${userId},friend_id.eq.${currentUserId})`);
+        if (!error) {
+          setConnectionStatus(null);
+          setConnectionInitiator(null);
+          setFollowersCount(prev => Math.max(0, prev - 1));
+        }
+      } else if (connectionStatus === "pending") {
+        if (connectionInitiator === currentUserId) {
+          // Cancel sent request
+          const { error } = await supabase
+            .from("connections")
+            .delete()
+            .eq("user_id", currentUserId)
+            .eq("friend_id", userId);
+          if (!error) {
+            setConnectionStatus(null);
+            setConnectionInitiator(null);
+          }
+        } else {
+          // Accept incoming request
+          const { error } = await supabase
+            .from("connections")
+            .update({ status: "accepted" })
+            .eq("user_id", userId)
+            .eq("friend_id", currentUserId);
+          if (!error) {
+            setConnectionStatus("accepted");
+            setFollowersCount(prev => prev + 1);
+          }
+        }
+      } else {
+        // Send a pending connection request
+        const { error } = await supabase
+          .from("connections")
+          .insert({
+            user_id: currentUserId,
+            friend_id: userId,
+            status: "pending",
+          });
+        if (!error) {
+          setConnectionStatus("pending");
+          setConnectionInitiator(currentUserId);
+        }
+      }
+    } catch (err) {
+      console.error("Error toggling connection:", err);
+    }
+  };
+
+  // Check auth on mount or parameter changes
   useEffect(() => {
     const user = auth.currentUser;
 
@@ -45,10 +131,11 @@ const Profile = () => {
 
     if (user) {
       fetchUserData();
+      fetchConnectionStatus();
     } else {
       setLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   // Refresh when screen is focused
   useFocusEffect(
@@ -57,8 +144,9 @@ const Profile = () => {
 
       if (user) {
         fetchUserData();
+        fetchConnectionStatus();
       }
-    }, [])
+    }, [userId])
   );
 
   // FIXED:
@@ -79,12 +167,14 @@ const Profile = () => {
         return;
       }
 
-      console.log("Fetching user profile...");
+      console.log("Fetching user profile for:", userId || user.uid);
+
+      const targetUserId = userId || user.uid;
 
       const { data, error: fetchError } = await supabase
         .from("users")
         .select("*")
-        .eq("id", user.uid)
+        .eq("id", targetUserId)
         .single();
 
       if (fetchError) {
@@ -93,7 +183,23 @@ const Profile = () => {
 
       setUserData(data);
 
-      console.log("User data fetched");
+      // Fetch dynamic stats from connections table
+      const { count: followersCountVal, error: followersError } = await supabase
+        .from("connections")
+        .select("*", { count: "exact", head: true })
+        .eq("friend_id", targetUserId)
+        .eq("status", "accepted");
+
+      const { count: followingCountVal, error: followingError } = await supabase
+        .from("connections")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", targetUserId)
+        .eq("status", "accepted");
+
+      if (!followersError) setFollowersCount(followersCountVal || 0);
+      if (!followingError) setFollowingCount(followingCountVal || 0);
+
+      console.log("User data and connections fetched");
     } catch (err) {
       console.error("Error fetching user data:", err);
       setError(err.message);
@@ -108,12 +214,14 @@ const Profile = () => {
 
       if (!user) return;
 
-      console.log("Fetching posts...");
+      console.log("Fetching posts for:", userId || user.uid);
+
+      const targetUserId = userId || user.uid;
 
       const { data, error: fetchError } = await supabase
         .from("posts")
         .select("*")
-        .eq("user_id", user.uid)
+        .eq("user_id", targetUserId)
         .order("created_at", { ascending: false });
 
       if (fetchError) {
@@ -122,10 +230,10 @@ const Profile = () => {
 
       console.log("Posts fetched");
 
-      // FIXED:
-      // Added safe fallback for undefined data
+      // Map dynamic columns
       const formattedFeeds = (data || []).map((post) => ({
         id: post.id.toString(),
+        author_id: post.user_id,
         user: {
           name: userData?.full_name || "User",
           profilePic:
@@ -133,13 +241,13 @@ const Profile = () => {
             userData.avatar_url.trim() !== ""
               ? { uri: userData.avatar_url }
               : require("../../assets/images/default.png"),
-          },
-          content: post.content,
-          time: new Date(post.created_at).toLocaleTimeString(),
-          image: post.media_url ? { uri: post.media_url } : null,
-          likes: "0",
-          comments: "0",
-        }));
+        },
+        content: post.content,
+        time: new Date(post.created_at).toLocaleTimeString(),
+        image: post.media_url ? { uri: post.media_url } : null,
+        likes: "0",
+        comments: "0",
+      }));
 
       setFeeds(formattedFeeds);
     } catch (err) {
@@ -269,13 +377,17 @@ const Profile = () => {
         }}
         renderItem={({ item }) =>
           active === "Posts" ? (
-            <Feed item={item} />
+            <View style={{ paddingHorizontal: 15 }}>
+              <Feed item={item} />
+            </View>
           ) : (
-            <DetailsCard
-              icon={item.icon}
-              title={item.title}
-              description={item.description}
-            />
+            <View style={{ paddingHorizontal: 15 }}>
+              <DetailsCard
+                icon={item.icon}
+                title={item.title}
+                description={item.description}
+              />
+            </View>
           )
         }
         ListHeaderComponent={
@@ -321,21 +433,67 @@ const Profile = () => {
                 </Text>
               </View>
 
-              {/* SETTINGS */}
+              {/* SETTINGS / SOCIAL ACTIONS */}
               <View style={styles.settings}>
-                <Pressable
-                  style={styles.editBtn}
-                  onPress={() => router.push("/editprofile")}
-                >
-                  <Text style={styles.settingText}>EDIT PROFILE</Text>
-                </Pressable>
+                {isOwnProfile ? (
+                  <>
+                    <Pressable
+                      style={styles.editBtn}
+                      onPress={() => router.push("/editprofile")}
+                    >
+                      <Text style={styles.settingText}>EDIT PROFILE</Text>
+                    </Pressable>
 
-                <Pressable
-                  style={styles.settingIcon}
-                  onPress={handleLogout}
-                >
-                  <Gear width={scale(25.94)} height={scale(25.94)} />
-                </Pressable>
+                    <Pressable
+                      style={styles.settingIcon}
+                      onPress={handleLogout}
+                    >
+                      <Gear width={scale(25.94)} height={scale(25.94)} />
+                    </Pressable>
+                  </>
+                ) : (
+                  <Pressable
+                    style={[
+                      styles.editBtn,
+                      {
+                        backgroundColor: connectionStatus === "accepted" 
+                          ? "#F3F4F6" 
+                          : connectionStatus === "pending" && connectionInitiator === currentUserId 
+                            ? "#F3F4F6" 
+                            : COLORS.accent,
+                        borderColor: connectionStatus === "accepted" || (connectionStatus === "pending" && connectionInitiator === currentUserId)
+                          ? "#E5E7EB" 
+                          : COLORS.accent,
+                        paddingHorizontal: scale(50),
+                        minWidth: scale(200),
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }
+                    ]}
+                    onPress={handleToggleConnection}
+                  >
+                    <Text
+                      style={[
+                        styles.settingText,
+                        { 
+                          color: connectionStatus === "accepted" 
+                            ? "#4B5563" 
+                            : connectionStatus === "pending" && connectionInitiator === currentUserId 
+                              ? "#888888" 
+                              : "#FFFFFF" 
+                        }
+                      ]}
+                    >
+                      {connectionStatus === "accepted" 
+                        ? "CONNECTED" 
+                        : connectionStatus === "pending" 
+                          ? connectionInitiator === currentUserId 
+                            ? "REQUESTED" 
+                            : "ACCEPT REQUEST" 
+                          : "CONNECT"}
+                    </Text>
+                  </Pressable>
+                )}
               </View>
 
               {/* STATS */}
@@ -361,23 +519,35 @@ const Profile = () => {
 
                   <View style={styles.lines} />
 
-                  <View style={styles.stat}>
-                    <Text style={styles.statNumber}>
-                      {userData?.followers_count || 0}
-                    </Text>
+                   <Pressable 
+                     style={styles.stat}
+                     onPress={() => router.push({
+                       pathname: "/connectionsList",
+                       params: { userId: userId || currentUserId, initialTab: "Followers" }
+                     })}
+                   >
+                     <Text style={styles.statNumber}>
+                       {followersCount}
+                     </Text>
 
-                    <Text style={styles.statText}>Followers</Text>
-                  </View>
+                     <Text style={styles.statText}>Followers</Text>
+                   </Pressable>
 
                   <View style={styles.lines} />
 
-                  <View style={styles.stat}>
+                  <Pressable 
+                    style={styles.stat}
+                    onPress={() => router.push({
+                      pathname: "/connectionsList",
+                      params: { userId: userId || currentUserId, initialTab: "Following" }
+                    })}
+                  >
                     <Text style={styles.statNumber}>
-                      {userData?.following_count || 0}
+                      {followingCount}
                     </Text>
 
                     <Text style={styles.statText}>Following</Text>
-                  </View>
+                  </Pressable>
                 </View>
               </View>
 

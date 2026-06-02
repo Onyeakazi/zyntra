@@ -65,6 +65,7 @@ export default function Index() {
       // Map the database View columns to feed item properties
       const formattedFeeds = (data || []).map((post) => ({
         id: post.post_id.toString(),
+        author_id: post.author_id,
         user: {
           name: post.author_name || "User",
           profilePic:

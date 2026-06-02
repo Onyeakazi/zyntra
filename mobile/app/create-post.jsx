@@ -10,7 +10,7 @@ import {
   Platform,
 } from "react-native";
 
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { auth } from "../config/firebase";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
@@ -26,16 +26,58 @@ import Camera from "../assets/vectors/cameras.svg";
 import LinkIcon from "../assets/vectors/link.svg";
 
 export default function CreatePost() {
+  const params = useLocalSearchParams();
+  const editId = params?.editId;
+
   const [avatar, setAvatar] = useState(null);
   const [content, setContent] = useState("");
-  const [selectedMedia, setSelectedMedia] = useState([]); // Array of { uri, type, name, size }
+  const [selectedMedia, setSelectedMedia] = useState([]); // Array of { uri, type, name, size, isUploaded }
   const [linkInputVisible, setLinkInputVisible] = useState(false);
   const [tempLink, setTempLink] = useState("");
   const [posting, setPosting] = useState(false);
 
   useEffect(() => {
     fetchUser();
-  }, []);
+    if (editId) {
+      fetchPostToEdit();
+    }
+  }, [editId]);
+
+  const fetchPostToEdit = async () => {
+    try {
+      console.log("Pre-loading post to edit, id:", editId);
+      const { data, error } = await supabase
+        .from("posts")
+        .select("*")
+        .eq("id", editId)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setContent(data.content || "");
+        if (data.media_url) {
+          const urls = data.media_url.split(",");
+          const media = urls.map((url) => {
+            let type = "image";
+            if (url.includes(".mp4") || url.includes(".mov")) type = "video";
+            else if (url.startsWith("http") && !url.includes("cloudinary.com") && !url.includes(".jpg") && !url.includes(".png") && !url.includes(".jpeg")) type = "link";
+            else if (url.includes(".pdf") || url.includes(".docx") || url.includes(".bin")) type = "document";
+
+            return {
+              uri: url,
+              type: type,
+              name: url.split("/").pop() || "media",
+              isUploaded: true,
+            };
+          });
+          setSelectedMedia(media);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching post to edit:", err);
+    }
+  };
 
   const fetchUser = async () => {
     const user = auth.currentUser;
@@ -277,6 +319,8 @@ export default function CreatePost() {
         const uploadPromises = selectedMedia.map(async (media) => {
           if (media.type === "link") {
             return { url: media.uri, type: "link" };
+          } else if (media.isUploaded) {
+            return { url: media.uri, type: media.type };
           } else {
             const resourceType = media.type === "image" ? "image" : media.type === "video" ? "video" : "raw";
             const url = await uploadToCloudinary(media, resourceType);
@@ -293,23 +337,39 @@ export default function CreatePost() {
       const uniqueTypes = [...new Set(mediaTypes)];
       const finalMediaType = uniqueTypes.length === 1 ? uniqueTypes[0] : uniqueTypes.length > 1 ? "mixed" : null;
 
-      const { error: postError } = await supabase
-        .from("posts")
-        .insert({
-          user_id: user.uid,
-          content: content,
-          media_url: finalMediaUrl,
-          media_type: finalMediaType,
-          created_at: new Date().toISOString(),
-        });
+      if (editId) {
+        // UPDATE MODE
+        const { error: postError } = await supabase
+          .from("posts")
+          .update({
+            content: content,
+            media_url: finalMediaUrl,
+            media_type: finalMediaType,
+          })
+          .eq("id", editId);
 
-      if (postError) throw postError;
+        if (postError) throw postError;
+        alert("Post updated successfully!");
+      } else {
+        // CREATE MODE
+        const { error: postError } = await supabase
+          .from("posts")
+          .insert({
+            user_id: user.uid,
+            content: content,
+            media_url: finalMediaUrl,
+            media_type: finalMediaType,
+            created_at: new Date().toISOString(),
+          });
 
-      alert("Post created successfully!");
+        if (postError) throw postError;
+        alert("Post created successfully!");
+      }
+
       router.back();
     } catch (err) {
       console.error("Post creation failed:", err);
-      alert("Failed to create post: " + err.message);
+      alert("Failed to save post: " + err.message);
     } finally {
       setPosting(false);
     }
@@ -323,13 +383,13 @@ export default function CreatePost() {
           <Text style={styles.cancel}>✕</Text>
         </Pressable>
 
-        <Text style={styles.title}>Create Post</Text>
+        <Text style={styles.title}>{editId ? "Edit Post" : "Create Post"}</Text>
 
         <Pressable onPress={handlePost} disabled={posting}>
           {posting ? (
             <ActivityIndicator size="small" color="#1877F2" />
           ) : (
-            <Text style={styles.post}>Post</Text>
+            <Text style={styles.post}>{editId ? "Update" : "Post"}</Text>
           )}
         </Pressable>
       </View>
