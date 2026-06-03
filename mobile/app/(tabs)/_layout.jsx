@@ -8,26 +8,107 @@ import COLORS from "../../constants/colors";
 import { Image, View } from "react-native";
 import { supabase } from "../../lib/supabase";
 import { useEffect, useState } from "react";
-import {auth} from "../../config/firebase";
+import { auth } from "../../config/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import TYPOGRAPHY from "../../constants/typography";
 
 const _layout = () => {
     const [avatar, setAvatar] = useState(null);
+    const [requestCount, setRequestCount] = useState(0);
+    const [isBadgeCleared, setIsBadgeCleared] = useState(false);
+    const fetchRequestCount = async (user) => {
+        if (!user) return;
+        console.log("[Badge Debug] Fetching connection requests for:", user.uid);
+        const { data, error } = await supabase
+            .from("connections")
+            .select("id")
+            .eq("friend_id", user.uid)
+            .eq("status", "pending");
 
-    useEffect(()=> {
-        const fetchAvatar = async () => {
-            const user = auth.currentUser;
-            if(!user) return;
+        if (error) {
+            console.error("[Badge Debug] Error fetching requests:", error.message);
+        } else {
+            const count = data?.length || 0;
+            console.log("[Badge Debug] Found requests count:", count);
+            setRequestCount(count);
+        }
+    };
 
-            const {data, error} = await supabase.from("users")
-                .select("avatar_url")
-                .eq("id", user.uid)
-                .single();
+    const fetchAvatar = async (user) => {
+        if (!user) return;
+        const { data, error } = await supabase.from("users")
+            .select("avatar_url")
+            .eq("id", user.uid)
+            .single();
 
-            if(!error && data?.avatar_url){
-                setAvatar(data.avatar_url);
+        if (!error && data?.avatar_url) {
+            setAvatar(data.avatar_url);
+        }
+    };
+
+    useEffect(() => {
+        let channel = null;
+
+        const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+            console.log("[Badge Debug] onAuthStateChanged fired! User logged in:", !!user);
+            if (user) {
+                fetchAvatar(user);
+                fetchRequestCount(user);
+
+                if (channel) {
+                    supabase.removeChannel(channel);
+                }
+
+                // Listen for connections updates in real-time
+                console.log("[Badge Debug] Registering Supabase Realtime channel...");
+                channel = supabase
+                    .channel('connections-badge-changes')
+                    .on(
+                        'postgres_changes',
+                        {
+                            event: '*',
+                            schema: 'public',
+                            table: 'connections'
+                        },
+                        (payload) => {
+                            console.log("[Badge Debug] Realtime payload received:", payload.eventType);
+                            const record = payload.new || payload.old;
+                            
+                            // For DELETE events, payload.old typically only contains the primary key (id),
+                            // so friend_id/user_id checks will fail. We unconditionally refresh the count on DELETE.
+                            if (payload.eventType === 'DELETE') {
+                                console.log("[Badge Debug] DELETE event received. Refreshing request count.");
+                                fetchRequestCount(user);
+                            } else if (record && (record.friend_id === user.uid || record.user_id === user.uid)) {
+                                fetchRequestCount(user);
+                                
+                                // If it's a NEW incoming connection request, make the badge visible again
+                                if (payload.eventType === 'INSERT' && payload.new.friend_id === user.uid && payload.new.status === 'pending') {
+                                    console.log("[Badge Debug] New request received! Showing badge.");
+                                    setIsBadgeCleared(false);
+                                }
+                            }
+                        }
+                    )
+                    .subscribe((status) => {
+                        console.log("[Badge Debug] Realtime channel status changed to:", status);
+                    });
+            } else {
+                setAvatar(null);
+                setRequestCount(0);
+                if (channel) {
+                    supabase.removeChannel(channel);
+                    channel = null;
+                }
+            }
+        });
+
+        return () => {
+            unsubscribeAuth();
+            if (channel) {
+                supabase.removeChannel(channel);
             }
         };
-        fetchAvatar();
     }, []);
 
   return (
@@ -75,6 +156,14 @@ const _layout = () => {
             options={{
                 title: "Add",
                 headerShown: false,
+                tabBarBadge: (!isBadgeCleared && requestCount > 0) ? (requestCount > 10 ? '10+' : requestCount) : undefined,
+                tabBarBadgeStyle: {
+                    backgroundColor: '#FF3B30',
+                    color: '#FFFFFF',
+                    fontSize: 10,
+                    fontFamily: TYPOGRAPHY.bold,
+                    lineHeight: 14,
+                },
                 tabBarIcon: ({focused}) => (
                     <View
                         style={{
@@ -91,6 +180,11 @@ const _layout = () => {
                     </View>
                 )
             }}
+            listeners={({ navigation }) => ({
+                tabPress: () => {
+                    setIsBadgeCleared(true);
+                },
+            })}
         />
 
         <Tabs.Screen 

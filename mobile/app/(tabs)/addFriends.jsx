@@ -20,7 +20,7 @@ import Search from "../../assets/vectors/search.svg";
 import COLORS from '../../constants/colors';
 import { supabase } from '../../lib/supabase';
 import { auth } from '../../config/firebase';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 
@@ -104,6 +104,42 @@ const AddFriends = () => {
       fetchUsers(users.length === 0);
     }, [])
   );
+
+  useEffect(() => {
+    let channel = null;
+    const user = auth.currentUser;
+    if (user) {
+      console.log("[AddFriends Debug] Registering real-time listener...");
+      channel = supabase
+        .channel('add-friends-realtime-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'connections'
+          },
+          (payload) => {
+            console.log("[AddFriends Debug] Realtime payload received:", payload.eventType);
+            const record = payload.new || payload.old;
+            // For DELETE events, payload.old typically only contains the ID, so we fetch unconditionally.
+            // For other events, we verify if it concerns the current user.
+            if (payload.eventType === 'DELETE' || (record && (record.friend_id === user.uid || record.user_id === user.uid))) {
+              console.log("[AddFriends Debug] Relevant connections change detected. Fetching updated list.");
+              fetchUsers(false);
+            }
+          }
+        )
+        .subscribe();
+    }
+
+    return () => {
+      if (channel) {
+        console.log("[AddFriends Debug] Unsubscribing real-time listener.");
+        supabase.removeChannel(channel);
+      }
+    };
+  }, []);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -199,15 +235,15 @@ const AddFriends = () => {
     return fullName.includes(query) || username.includes(query);
   });
 
-  const renderRequestCard = ({ item }) => {
+  const renderRequestRow = (item) => {
     return (
-      <View style={styles.requestCard}>
+      <View key={item.id} style={styles.requestRow}>
         <Pressable 
           onPress={() => router.push({
             pathname: "/(tabs)/profile",
             params: { userId: item.id }
           })}
-          style={styles.requestCardInfo}
+          style={styles.requestRowInfo}
         >
           <Image
             source={
@@ -215,24 +251,26 @@ const AddFriends = () => {
                 ? { uri: item.avatar_url }
                 : require("../../assets/images/default.png")
             }
-            style={styles.requestAvatar}
+            style={styles.requestRowAvatar}
           />
-          <Text style={styles.requestName} numberOfLines={1}>{item.full_name || "User"}</Text>
-          <Text style={styles.requestUsername} numberOfLines={1}>@{item.username}</Text>
+          <View style={styles.requestRowTextContainer}>
+            <Text style={styles.requestRowName} numberOfLines={1}>{item.full_name || "User"}</Text>
+            <Text style={styles.requestRowUsername} numberOfLines={1}>@{item.username}</Text>
+          </View>
         </Pressable>
         
-        <View style={styles.requestActions}>
+        <View style={styles.requestRowActions}>
           <Pressable 
-            style={styles.acceptBtn}
+            style={styles.acceptBtnRow}
             onPress={() => handleAcceptRequest(item)}
           >
-            <Text style={styles.acceptBtnText}>Accept</Text>
+            <Text style={styles.acceptBtnTextRow}>Accept</Text>
           </Pressable>
           <Pressable 
-            style={styles.declineBtn}
+            style={styles.declineBtnRow}
             onPress={() => handleDeclineRequest(item)}
           >
-            <Text style={styles.declineBtnText}>Decline</Text>
+            <Text style={styles.declineBtnTextRow}>Decline</Text>
           </Pressable>
         </View>
       </View>
@@ -335,14 +373,9 @@ const AddFriends = () => {
               incomingRequests.length > 0 && !searchQuery ? (
                 <View style={styles.requestsSection}>
                   <Text style={styles.sectionTitle}>Connection Requests</Text>
-                  <FlatList
-                    data={incomingRequests}
-                    keyExtractor={(item) => item.id}
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.requestsList}
-                    renderItem={renderRequestCard}
-                  />
+                  <View style={styles.requestsListVertical}>
+                    {incomingRequests.map(renderRequestRow)}
+                  </View>
                   <View style={styles.divider} />
                   <Text style={[styles.sectionTitle, { marginTop: 15 }]}>People You May Know</Text>
                 </View>
@@ -465,90 +498,93 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
-  requestsList: {
+  requestsListVertical: {
     paddingVertical: 5,
   },
 
-  requestCard: {
-    width: 140,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
+  requestRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
     padding: 12,
-    marginRight: 12,
-    alignItems: "center",
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
     elevation: 1,
   },
 
-  requestCardInfo: {
-    alignItems: "center",
-    width: "100%",
+  requestRowInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
   },
 
-  requestAvatar: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    resizeMode: "cover",
-    marginBottom: 8,
+  requestRowAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: '#E5E7EB',
   },
 
-  requestName: {
-    fontSize: 13,
+  requestRowTextContainer: {
+    marginLeft: 12,
+    flex: 1,
+  },
+
+  requestRowName: {
+    fontSize: 15,
     fontFamily: TYPOGRAPHY.semiBold,
-    color: "#111111",
-    textAlign: "center",
+    color: '#111111',
   },
 
-  requestUsername: {
-    fontSize: 11,
+  requestRowUsername: {
+    fontSize: 12,
     fontFamily: TYPOGRAPHY.regular,
     color: COLORS.secondary,
-    textAlign: "center",
-    marginBottom: 10,
+    marginTop: 1,
   },
 
-  requestActions: {
-    width: "100%",
-    gap: 6,
+  requestRowActions: {
+    flexDirection: 'row',
+    gap: 8,
   },
 
-  acceptBtn: {
+  acceptBtnRow: {
     backgroundColor: COLORS.accent,
-    height: 28,
+    height: 32,
+    paddingHorizontal: 14,
     borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
-    width: "100%",
   },
 
-  acceptBtnText: {
+  acceptBtnTextRow: {
     color: "#FFFFFF",
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: TYPOGRAPHY.semiBold,
   },
 
-  declineBtn: {
+  declineBtnRow: {
     backgroundColor: "#F3F4F6",
-    height: 28,
+    height: 32,
+    paddingHorizontal: 14,
     borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
-    width: "100%",
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
 
-  declineBtnText: {
+  declineBtnTextRow: {
     color: "#4B5563",
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: TYPOGRAPHY.semiBold,
   },
 
