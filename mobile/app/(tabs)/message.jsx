@@ -14,7 +14,7 @@ const jobs = () => {
           alignItems: "center",
         }}
       >
-        <Text>Jobs screen</Text>
+        <Text>Message</Text>
       </View>
     </ScreenWrapper>
   )

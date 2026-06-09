@@ -36,6 +36,55 @@ export default function CreatePost() {
   const [tempLink, setTempLink] = useState("");
   const [posting, setPosting] = useState(false);
 
+  const [allUsers, setAllUsers] = useState([]);
+  const [suggestedUsers, setSuggestedUsers] = useState([]);
+  const [isSuggestingMentions, setIsSuggestingMentions] = useState(false);
+
+  // Fetch all users for auto-complete suggestions
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("users")
+          .select("id, full_name, username, avatar_url");
+        if (!error && data) {
+          setAllUsers(data);
+        }
+      } catch (err) {
+        console.error("Error fetching users for create-post autocomplete:", err);
+      }
+    };
+    fetchUsers();
+  }, []);
+
+  const handleContentChange = (text) => {
+    setContent(text);
+    
+    // Check if typing a mention at the end of the text
+    const mentionMatch = text.match(/@([a-zA-Z0-9_]*)$/);
+    if (mentionMatch) {
+      const query = mentionMatch[1].toLowerCase();
+      setIsSuggestingMentions(true);
+      
+      const filtered = allUsers.filter(u => 
+        (u.username && u.username.toLowerCase().includes(query)) ||
+        (u.full_name && u.full_name.toLowerCase().includes(query))
+      ).slice(0, 5);
+      
+      setSuggestedUsers(filtered);
+    } else {
+      setIsSuggestingMentions(false);
+      setSuggestedUsers([]);
+    }
+  };
+
+  const handleSelectSuggestedUser = (suggestedUsername) => {
+    const updated = content.replace(/@([a-zA-Z0-9_]*)$/, `@${suggestedUsername} `);
+    setContent(updated);
+    setIsSuggestingMentions(false);
+    setSuggestedUsers([]);
+  };
+
   useEffect(() => {
     fetchUser();
     if (editId) {
@@ -422,9 +471,35 @@ export default function CreatePost() {
           placeholderTextColor="#777"
           multiline
           value={content}
-          onChangeText={setContent}
+          onChangeText={handleContentChange}
           style={styles.input}
         />
+
+        {/* Autocomplete Suggestions Popup */}
+        {isSuggestingMentions && suggestedUsers.length > 0 && (
+          <View style={styles.suggestionsContainerInline}>
+            {suggestedUsers.map((user) => (
+              <Pressable
+                key={user.id}
+                onPress={() => handleSelectSuggestedUser(user.username)}
+                style={styles.suggestionItem}
+              >
+                <Image
+                  source={
+                    user.avatar_url && user.avatar_url.trim() !== ""
+                      ? { uri: user.avatar_url }
+                      : require("../assets/images/default.png")
+                  }
+                  style={styles.suggestionAvatar}
+                />
+                <View style={styles.suggestionTextContainer}>
+                  <Text style={styles.suggestionFullName}>{user.full_name}</Text>
+                  <Text style={styles.suggestionUsername}>@{user.username}</Text>
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        )}
 
         {/* LINK ENTRY FIELD */}
         {linkInputVisible && (
@@ -769,5 +844,52 @@ const styles = StyleSheet.create({
   optionText: {
     fontSize: 16,
     color: "#111",
+  },
+
+  suggestionsContainerInline: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginTop: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+    maxHeight: 200,
+  },
+
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+
+  suggestionAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+
+  suggestionTextContainer: {
+    marginLeft: 12,
+  },
+
+  suggestionFullName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#111111',
+  },
+
+  suggestionUsername: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 1,
   },
 });

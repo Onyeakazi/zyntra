@@ -5,10 +5,11 @@ import Share from "../assets/vectors/share.svg";
 import Saved from "../assets/vectors/save.svg";
 import LinkIcon from "../assets/vectors/link.svg";
 import Svg, { Path, Polyline, Line } from 'react-native-svg';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
 import { auth } from '../config/firebase';
 import { supabase } from '../lib/supabase';
+import { renderTextWithMentions } from '../utils/mentions';
 
 // Custom inline SVG icons for visual excellence
 const EditIcon = ({ color = "#333", size = 16 }) => (
@@ -34,15 +35,232 @@ const ReportIcon = ({ color = "red", size = 16 }) => (
   </Svg>
 );
 
+const BookmarkIcon = ({ color = "#666", size = 24, filled = false }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? color : "none"} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+  </Svg>
+);
+
 const Feed = ({ item }) => {
   const [expanded, setExpanded] = useState(false);
   const [showMore, setShowMore] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [showOptions, setShowOptions] = useState(false);
 
+  // Reaction and interaction states
+  const [myReaction, setMyReaction] = useState(null);
+  const [reactionCounts, setReactionCounts] = useState({});
+  const [totalReactions, setTotalReactions] = useState(0);
+  const [commentsCount, setCommentsCount] = useState(0);
+  const [savesCount, setSavesCount] = useState(0);
+  const [sharesCount, setSharesCount] = useState(0);
+  const [isSaved, setIsSaved] = useState(false);
+  const [showReactionsPanel, setShowReactionsPanel] = useState(false);
+
   const cardWidth = Dimensions.get("window").width - 60;
   const currentUserId = auth.currentUser?.uid;
   const isAuthor = item.author_id === currentUserId;
+
+  // Helpers for reaction calculations
+  const getReactionEmoji = (type) => {
+    switch (type) {
+      case 'like': return '👍';
+      case 'love': return '❤️';
+      case 'care': return '🥰';
+      case 'haha': return '😂';
+      case 'wow': return '😮';
+      case 'sad': return '😢';
+      case 'angry': return '😡';
+      default: return '👍';
+    }
+  };
+
+  const getReactionColor = (type) => {
+    switch (type) {
+      case 'like': return '#438def'; // Blue
+      case 'love': return '#f33d45'; // Red
+      case 'haha':
+      case 'wow':
+      case 'care': return '#f5b50a'; // Gold/Yellow
+      case 'sad': return '#f5b50a';
+      case 'angry': return '#e1523c'; // Dark Orange/Red
+      default: return '#666';
+    }
+  };
+
+  const getTopReactionEmojis = (counts) => {
+    const sorted = Object.entries(counts)
+      .filter(([_, count]) => count > 0)
+      .sort((a, b) => b[1] - a[1])
+      .map(([type]) => getReactionEmoji(type));
+    return sorted.slice(0, 3);
+  };
+
+  const capitalize = (str) => {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  };
+
+  const fetchReactionsCount = async () => {
+    if (!item.id) return;
+    const { data, error } = await supabase
+      .from("post_reactions")
+      .select("reaction_type")
+      .eq("post_id", item.id);
+    if (!error && data) {
+      const counts = {};
+      data.forEach(r => {
+        counts[r.reaction_type] = (counts[r.reaction_type] || 0) + 1;
+      });
+      setReactionCounts(counts);
+      setTotalReactions(data.length);
+    }
+  };
+
+  const fetchCommentsCount = async () => {
+    if (!item.id) return;
+    const { count, error } = await supabase
+      .from("post_comments")
+      .select("*", { count: 'exact', head: true })
+      .eq("post_id", item.id);
+    if (!error && count !== null) {
+      setCommentsCount(count);
+    }
+  };
+
+  const fetchSavesCount = async () => {
+    if (!item.id) return;
+    const { count, error } = await supabase
+      .from("saved_posts")
+      .select("*", { count: 'exact', head: true })
+      .eq("post_id", item.id);
+    if (!error && count !== null) {
+      setSavesCount(count);
+    }
+  };
+
+  const fetchSharesCount = async () => {
+    if (!item.id) return;
+    const { count, error } = await supabase
+      .from("post_shares")
+      .select("*", { count: 'exact', head: true })
+      .eq("post_id", item.id);
+    if (!error && count !== null) {
+      setSharesCount(count);
+    } else if (error && (error.code === '42P01' || error.message.includes("does not exist"))) {
+      // Gracefully handle if post_shares table is not yet created by the user
+      console.log("post_shares table does not exist. Ignoring share count.");
+    }
+  };
+
+  const handleLogShare = async () => {
+    if (!item.id) return;
+    try {
+      const { error } = await supabase
+        .from("post_shares")
+        .insert({
+          post_id: item.id,
+          user_id: currentUserId || null
+        });
+      if (!error) {
+        setSharesCount(prev => prev + 1);
+      } else if (error && (error.code === '42P01' || error.message.includes("does not exist"))) {
+        // Fallback: local increment if table is not created yet
+        setSharesCount(prev => prev + 1);
+      }
+    } catch (err) {
+      console.error("Error logging share:", err.message);
+      // Fallback
+      setSharesCount(prev => prev + 1);
+    }
+  };
+
+  // Fetch interactions (reactions, comments, saved status)
+  useEffect(() => {
+    let active = true;
+
+    const fetchInteractions = async () => {
+      if (!currentUserId || !item.id) return;
+
+      try {
+        // 1. Fetch user reaction
+        const { data: reactData, error: reactError } = await supabase
+          .from("post_reactions")
+          .select("reaction_type")
+          .eq("post_id", item.id)
+          .eq("user_id", currentUserId)
+          .maybeSingle();
+
+        if (active) {
+          if (!reactError && reactData) {
+            setMyReaction(reactData.reaction_type);
+          } else {
+            setMyReaction(null);
+          }
+        }
+
+        // 2. Fetch counts
+        await fetchReactionsCount();
+        await fetchCommentsCount();
+        await fetchSavesCount();
+        await fetchSharesCount();
+
+        // 3. Fetch save status
+        const { data: saveDoc, error: saveError } = await supabase
+          .from("saved_posts")
+          .select("id")
+          .eq("post_id", item.id)
+          .eq("user_id", currentUserId)
+          .maybeSingle();
+
+        if (active) {
+          setIsSaved(!!saveDoc);
+        }
+      } catch (err) {
+        console.error("Error loading interactions:", err);
+      }
+    };
+
+    fetchInteractions();
+
+    // Supabase Real-time updates for reactions and comments on this post
+    const channel = supabase
+      .channel(`post-realtime-${item.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'post_reactions', filter: `post_id=eq.${item.id}` },
+        () => {
+          fetchReactionsCount();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'post_comments', filter: `post_id=eq.${item.id}` },
+        () => {
+          fetchCommentsCount();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'saved_posts', filter: `post_id=eq.${item.id}` },
+        () => {
+          fetchSavesCount();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'post_shares', filter: `post_id=eq.${item.id}` },
+        () => {
+          fetchSharesCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      active = false;
+      supabase.removeChannel(channel);
+    };
+  }, [item.id, currentUserId]);
 
   const handleScroll = (event) => {
     const scrollPosition = event.nativeEvent.contentOffset.x;
@@ -94,9 +312,18 @@ const Feed = ({ item }) => {
     );
   };
 
-  const handleCopyLink = () => {
+  const handleCopyLink = async () => {
     setShowOptions(false);
-    Alert.alert("Link Copied", "Post link copied to clipboard!");
+    const postUrl = `https://zyntra.com/posts/${item.id}`;
+    // Support basic react-native copy
+    const Clipboard = require('react-native').Clipboard;
+    if (Clipboard) {
+      Clipboard.setString(postUrl);
+      Alert.alert("Link Copied", "Post link copied to clipboard!");
+      await handleLogShare();
+    } else {
+      Alert.alert("Error", "Clipboard is not available.");
+    }
   };
 
   const handleSharePost = () => {
@@ -107,8 +334,8 @@ const Feed = ({ item }) => {
       [
         { text: "Cancel", style: "cancel" },
         { 
-          text: "Send to Zyntra Friend", 
-          onPress: () => Alert.alert("Success", "Shared successfully with Zyntra friends!")
+          text: "Copy Link", 
+          onPress: handleCopyLink
         },
         { 
           text: "Share Outside Platform", 
@@ -117,6 +344,7 @@ const Feed = ({ item }) => {
               await RNShare.share({
                 message: `${item.content || "Check out this post on Zyntra!"}\n\nRead more on Zyntra!`,
               });
+              await handleLogShare();
             } catch (error) {
               console.error(error.message);
             }
@@ -126,9 +354,132 @@ const Feed = ({ item }) => {
     );
   };
 
-  const handleSavePost = () => {
+  const handleSavePostToggle = async () => {
     setShowOptions(false);
-    Alert.alert("Saved", "Post saved to your bookmarks successfully!");
+    if (!currentUserId) return;
+
+    try {
+      if (isSaved) {
+        const { error } = await supabase
+          .from("saved_posts")
+          .delete()
+          .eq("post_id", item.id)
+          .eq("user_id", currentUserId);
+
+        if (error) throw error;
+        setIsSaved(false);
+        setSavesCount(prev => Math.max(0, prev - 1));
+        Alert.alert("Removed Bookmark", "Post removed from your bookmarks.");
+      } else {
+        const { error } = await supabase
+          .from("saved_posts")
+          .insert({
+            post_id: item.id,
+            user_id: currentUserId
+          });
+
+        if (error) throw error;
+        setIsSaved(true);
+        setSavesCount(prev => prev + 1);
+        Alert.alert("Bookmarked", "Post saved to your bookmarks successfully!");
+      }
+    } catch (err) {
+      console.error("Error toggling bookmark:", err.message);
+    }
+  };
+
+  const handleToggleLike = async () => {
+    if (!currentUserId) {
+      Alert.alert("Not logged in", "Please log in to react to posts.");
+      return;
+    }
+
+    try {
+      if (myReaction) {
+        const { error } = await supabase
+          .from("post_reactions")
+          .delete()
+          .eq("post_id", item.id)
+          .eq("user_id", currentUserId);
+
+        if (error) throw error;
+        setMyReaction(null);
+        setReactionCounts(prev => {
+          const updated = { ...prev };
+          if (updated[myReaction] > 1) {
+            updated[myReaction]--;
+          } else {
+            delete updated[myReaction];
+          }
+          return updated;
+        });
+        setTotalReactions(prev => Math.max(0, prev - 1));
+      } else {
+        const { error } = await supabase
+          .from("post_reactions")
+          .upsert({
+            post_id: item.id,
+            user_id: currentUserId,
+            reaction_type: 'like'
+          }, { onConflict: 'post_id,user_id' });
+
+        if (error) throw error;
+        setMyReaction('like');
+        setReactionCounts(prev => ({
+          ...prev,
+          like: (prev.like || 0) + 1
+        }));
+        setTotalReactions(prev => prev + 1);
+      }
+    } catch (err) {
+      console.error("Error toggling like:", err.message);
+    }
+  };
+
+  const handleSelectReaction = async (type) => {
+    setShowReactionsPanel(false);
+    if (!currentUserId) return;
+
+    try {
+      const oldReaction = myReaction;
+      const { error } = await supabase
+        .from("post_reactions")
+        .upsert({
+          post_id: item.id,
+          user_id: currentUserId,
+          reaction_type: type
+        }, { onConflict: 'post_id,user_id' });
+
+      if (error) throw error;
+
+      setMyReaction(type);
+      setReactionCounts(prev => {
+        const updated = { ...prev };
+        if (oldReaction) {
+          if (updated[oldReaction] > 1) {
+            updated[oldReaction]--;
+          } else {
+            delete updated[oldReaction];
+          }
+        }
+        updated[type] = (updated[type] || 0) + 1;
+        return updated;
+      });
+
+      if (!oldReaction) {
+        setTotalReactions(prev => prev + 1);
+      }
+    } catch (err) {
+      console.error("Error setting reaction:", err.message);
+    }
+  };
+
+  const navigateToComments = () => {
+    if (!item.id) return;
+    router.push({
+      pathname: "/comments",
+      params: { postId: item.id }
+    });
   };
 
   const handleReportPost = () => {
@@ -158,6 +509,14 @@ const Feed = ({ item }) => {
           <Text style={styles.moreText}>•••</Text>
         </Pressable>
 
+        {/* Full screen overlay to catch click away and close options */}
+        {showOptions && (
+          <Pressable 
+            style={styles.overlayClose} 
+            onPress={() => setShowOptions(false)}
+          />
+        )}
+
         {/* Options Dropdown Overlay */}
         {showOptions && (
           <View style={styles.optionsDropdown}>
@@ -185,9 +544,11 @@ const Feed = ({ item }) => {
 
             <View style={styles.optionDivider} />
 
-            <TouchableOpacity onPress={handleSavePost} style={styles.optionItem}>
-              <Saved width={16} height={16} color="#333" />
-              <Text style={styles.optionText}>Save Post</Text>
+            <TouchableOpacity onPress={handleSavePostToggle} style={styles.optionItem}>
+              <BookmarkIcon size={16} color={isSaved ? "#438def" : "#333"} filled={isSaved} />
+              <Text style={[styles.optionText, isSaved ? { color: "#438def" } : null]}>
+                {isSaved ? "Saved" : "Save Post"}
+              </Text>
             </TouchableOpacity>
 
             {isAuthor && (
@@ -225,7 +586,7 @@ const Feed = ({ item }) => {
             }
           }}
         >
-          {item.content}
+          {renderTextWithMentions(item.content, styles.mentionLink, styles.contentText)}
         </Text>
 
         {/* Show button ONLY if text exceeds 3 lines */}
@@ -296,30 +657,104 @@ const Feed = ({ item }) => {
 
       </View>
 
+      {/* Interaction Counts Info Bar */}
+      {(totalReactions > 0 || commentsCount > 0) && (
+        <View style={styles.infoBar}>
+          <View style={styles.infoReactions}>
+            {totalReactions > 0 && (
+              <>
+                <View style={styles.emojiContainer}>
+                  {getTopReactionEmojis(reactionCounts).map((emoji, index) => (
+                    <View 
+                      key={index} 
+                      style={[
+                        styles.emojiCircle, 
+                        { 
+                          marginLeft: index > 0 ? -6 : 0, 
+                          zIndex: 10 - index 
+                        }
+                      ]}
+                    >
+                      <Text style={styles.infoReactionsEmojis}>{emoji}</Text>
+                    </View>
+                  ))}
+                </View>
+                <Text style={styles.infoReactionsText}>
+                  {totalReactions}
+                </Text>
+              </>
+            )}
+          </View>
+          {commentsCount > 0 && (
+            <Text style={styles.infoCommentsText}>
+              {commentsCount} {commentsCount === 1 ? "comment" : "comments"}
+            </Text>
+          )}
+        </View>
+      )}
+
       {/* Footer */}
       <View style={styles.feedFooter}>
 
         <View style={styles.reactions}>
 
-          <View style={styles.likes}>
-            <Like width={24} height={24} />
-            <Text>{item.likes}</Text>
-          </View>
+          <Pressable 
+            onPress={handleToggleLike}
+            onLongPress={() => setShowReactionsPanel(true)}
+            delayLongPress={250}
+            style={styles.likes}
+          >
+            {myReaction ? (
+              <Text style={{ fontSize: 24 }}>{getReactionEmoji(myReaction)}</Text>
+            ) : (
+              <Like width={24} height={24} color="#666" />
+            )}
+            {totalReactions > 0 && (
+              <Text style={styles.actionText}>{totalReactions}</Text>
+            )}
+          </Pressable>
 
-          <View style={styles.comments}>
-            <Message width={24} height={24} />
-            <Text>{item.comments}</Text>
-          </View>
+          <Pressable onPress={navigateToComments} style={styles.comments}>
+            <Message width={24} height={24} color="#666" />
+            {commentsCount > 0 && (
+              <Text style={styles.actionText}>{commentsCount}</Text>
+            )}
+          </Pressable>
 
-          <View style={styles.share}>
-            <Share width={24} height={24} />
-          </View>
+          <Pressable onPress={handleSharePost} style={styles.share}>
+            <Share width={24} height={24} color="#666" />
+            {sharesCount > 0 && (
+              <Text style={styles.actionText}>{sharesCount}</Text>
+            )}
+          </Pressable>
 
         </View>
 
-        <View style={styles.save}>
-          <Saved width={24} height={24} />
-        </View>
+        <Pressable onPress={handleSavePostToggle} style={styles.save}>
+          <BookmarkIcon size={24} color={isSaved ? "#438def" : "#666"} filled={isSaved} />
+          {savesCount > 0 && (
+            <Text style={[styles.actionText, isSaved ? { color: "#438def" } : null]}>
+              {savesCount}
+            </Text>
+          )}
+        </Pressable>
+
+        {/* Floating Reactions Option Panel */}
+        {showReactionsPanel && (
+          <View style={styles.reactionsPanel}>
+            {['like', 'love', 'care', 'haha', 'wow', 'sad', 'angry'].map((type) => (
+              <Pressable
+                key={type}
+                onPress={() => handleSelectReaction(type)}
+                style={styles.reactionPanelEmojiWrapper}
+              >
+                <Text style={styles.reactionPanelEmoji}>
+                  {getReactionEmoji(type)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
 
       </View>
 
@@ -428,6 +863,11 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 
+  mentionLink: {
+    color: "#5096F1",
+    fontWeight: "bold",
+  },
+
   seeMore: {
     color: "#888",
     marginTop: 4,
@@ -487,7 +927,7 @@ const styles = StyleSheet.create({
 
   reactions: {
     flexDirection: "row",
-    gap: 15,
+    gap: 25,
     alignItems: "center",
   },
 
@@ -506,10 +946,110 @@ const styles = StyleSheet.create({
   share: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 5,
   },
 
   save: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 5,
+  },
+
+  actionText: {
+    fontSize: 13,
+    color: "#666",
+    fontWeight: "500",
+  },
+
+  infoBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+    marginBottom: 5,
+  },
+
+  infoReactions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  emojiContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: 6,
+  },
+
+  emojiCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "#fff",
+    borderWidth: 1.5,
+    borderColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+
+  infoReactionsEmojis: {
+    fontSize: 12,
+    lineHeight: 14,
+  },
+
+  infoReactionsText: {
+    fontSize: 12,
+    color: "#888",
+    fontWeight: "500",
+  },
+
+  infoCommentsText: {
+    fontSize: 12,
+    color: "#888",
+    fontWeight: "500",
+  },
+
+  reactionsPanel: {
+    position: "absolute",
+    bottom: 45,
+    left: 0,
+    flexDirection: "row",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 30,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
+    gap: 8,
+    zIndex: 9999,
+  },
+
+  reactionPanelEmojiWrapper: {
+    transform: [{ scale: 1 }],
+  },
+
+  reactionPanelEmoji: {
+    fontSize: 26,
+  },
+
+  overlayClose: {
+    position: "absolute",
+    top: -500,
+    bottom: -1000,
+    left: -100,
+    right: -100,
+    backgroundColor: "transparent",
+    zIndex: 98,
   },
 });

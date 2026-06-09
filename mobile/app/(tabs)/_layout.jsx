@@ -1,8 +1,8 @@
 import { Stack, Tabs } from "expo-router";
 import House from "../../assets/vectors/House.svg";
 import AddUser from "../../assets/vectors/addUser.svg";
-import Job from "../../assets/vectors/briefcase.svg";
-import Community from "../../assets/vectors/community.svg";
+import Message from "../../assets/vectors/send.svg";
+import Notification from "../../assets/vectors/notification.svg";
 import Profile from "../../assets/vectors/profileImg.svg";
 import COLORS from "../../constants/colors";
 import { Image, View } from "react-native";
@@ -11,11 +11,14 @@ import { useEffect, useState } from "react";
 import { auth } from "../../config/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import TYPOGRAPHY from "../../constants/typography";
+import Svg, { Path, Circle } from "react-native-svg";
 
 const _layout = () => {
     const [avatar, setAvatar] = useState(null);
     const [requestCount, setRequestCount] = useState(0);
     const [isBadgeCleared, setIsBadgeCleared] = useState(false);
+    const [notificationCount, setNotificationCount] = useState(0);
+    const [isNotifBadgeCleared, setIsNotifBadgeCleared] = useState(false);
     const fetchRequestCount = async (user) => {
         if (!user) return;
         console.log("[Badge Debug] Fetching connection requests for:", user.uid);
@@ -31,6 +34,24 @@ const _layout = () => {
             const count = data?.length || 0;
             console.log("[Badge Debug] Found requests count:", count);
             setRequestCount(count);
+        }
+    };
+
+    const fetchNotificationCount = async (user) => {
+        if (!user) return;
+        console.log("[Badge Debug] Fetching unread notifications for:", user.uid);
+        const { data, error } = await supabase
+            .from("notifications")
+            .select("id")
+            .eq("receiver_id", user.uid)
+            .eq("is_read", false);
+
+        if (error) {
+            console.error("[Badge Debug] Error fetching notifications:", error.message);
+        } else {
+            const count = data?.length || 0;
+            console.log("[Badge Debug] Found unread notifications count:", count);
+            setNotificationCount(count);
         }
     };
 
@@ -54,12 +75,13 @@ const _layout = () => {
             if (user) {
                 fetchAvatar(user);
                 fetchRequestCount(user);
+                fetchNotificationCount(user);
 
                 if (channel) {
                     supabase.removeChannel(channel);
                 }
 
-                // Listen for connections updates in real-time
+                // Listen for connections and notifications updates in real-time
                 console.log("[Badge Debug] Registering Supabase Realtime channel...");
                 channel = supabase
                     .channel('connections-badge-changes')
@@ -74,19 +96,33 @@ const _layout = () => {
                             console.log("[Badge Debug] Realtime payload received:", payload.eventType);
                             const record = payload.new || payload.old;
                             
-                            // For DELETE events, payload.old typically only contains the primary key (id),
-                            // so friend_id/user_id checks will fail. We unconditionally refresh the count on DELETE.
                             if (payload.eventType === 'DELETE') {
                                 console.log("[Badge Debug] DELETE event received. Refreshing request count.");
                                 fetchRequestCount(user);
                             } else if (record && (record.friend_id === user.uid || record.user_id === user.uid)) {
                                 fetchRequestCount(user);
                                 
-                                // If it's a NEW incoming connection request, make the badge visible again
                                 if (payload.eventType === 'INSERT' && payload.new.friend_id === user.uid && payload.new.status === 'pending') {
                                     console.log("[Badge Debug] New request received! Showing badge.");
                                     setIsBadgeCleared(false);
                                 }
+                            }
+                        }
+                    )
+                    .on(
+                        'postgres_changes',
+                        {
+                            event: '*',
+                            schema: 'public',
+                            table: 'notifications',
+                            filter: `receiver_id=eq.${user.uid}`
+                        },
+                        (payload) => {
+                            console.log("[Badge Debug] Notification Realtime payload received:", payload.eventType);
+                            fetchNotificationCount(user);
+                            if (payload.eventType === 'INSERT' && !payload.new.is_read) {
+                                console.log("[Badge Debug] New unread notification received! Showing badge.");
+                                setIsNotifBadgeCleared(false);
                             }
                         }
                     )
@@ -96,6 +132,7 @@ const _layout = () => {
             } else {
                 setAvatar(null);
                 setRequestCount(0);
+                setNotificationCount(0);
                 if (channel) {
                     supabase.removeChannel(channel);
                     channel = null;
@@ -141,11 +178,17 @@ const _layout = () => {
                             borderRadius: 10,
                         }}
                     >
-                        <House
-                            width={24}
-                            height={24}
-                            color={focused ? "#5096F1" : COLORS.secondary}
-                        />
+                        {focused ? (
+                            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                                <Path d="M12 2.09961L1 12H4V22H10V16H14V22H20V12H23L12 2.09961Z" fill="#5096F1" />
+                            </Svg>
+                        ) : (
+                            <House
+                                width={24}
+                                height={24}
+                                color={COLORS.secondary}
+                            />
+                        )}
                     </View>
                 )
             }}
@@ -172,11 +215,19 @@ const _layout = () => {
                             borderRadius: 10,
                         }}
                     >
-                        <AddUser
-                            width={24}
-                            height={24}
-                            color={focused ? "#5096F1" : COLORS.secondary}
-                        />
+                        {focused ? (
+                            <Svg width={24} height={24} viewBox="0 0 23 17" fill="none">
+                                <Circle cx={8.6} cy={6.3} r={3.8} fill="#5096F1" />
+                                <Path d="M8.6 12.7C4.5 12.7 0 14.5 0 16.5H17.2C17.2 14.5 12.7 12.7 8.6 12.7Z" fill="#5096F1" />
+                                <Path d="M18.75 6.75h1.5v3h3v1.5h-3v3h-1.5v-3h-3V9.75h3v-3z" fill="#5096F1" />
+                            </Svg>
+                        ) : (
+                            <AddUser
+                                width={24}
+                                height={24}
+                                color={COLORS.secondary}
+                            />
+                        )}
                     </View>
                 )
             }}
@@ -188,9 +239,9 @@ const _layout = () => {
         />
 
         <Tabs.Screen 
-            name="jobs"
+            name="message"
             options={{
-                title: "Job",
+                title: "Message",
                 headerShown: false,
                 tabBarIcon: ({focused}) => (
                     <View
@@ -200,21 +251,36 @@ const _layout = () => {
                             borderRadius: 10,
                         }}
                     >
-                        <Job
-                            width={24}
-                            height={24}
-                            color={focused ? "#5096F1" : COLORS.secondary}
-                        />
+                        {focused ? (
+                            <Svg width={24} height={24} viewBox="0 0 21 21" fill="none">
+                                <Path d="M21 0 L0 7 L9 12 Z" fill="#5096F1" />
+                                <Path d="M21 0 L9 12 L14 21 Z" fill="#5096F1" opacity={0.85} />
+                            </Svg>
+                        ) : (
+                            <Message
+                                width={24}
+                                height={24}
+                                color={COLORS.secondary}
+                            />
+                        )}
                     </View> 
                 )
             }}
         />
 
         <Tabs.Screen 
-            name="community"
+            name="notification"
             options={{
-                title: "Community",
+                title: "Notification",
                 headerShown: false,
+                tabBarBadge: (!isNotifBadgeCleared && notificationCount > 0) ? (notificationCount > 10 ? '10+' : notificationCount) : undefined,
+                tabBarBadgeStyle: {
+                    backgroundColor: '#FF3B30',
+                    color: '#FFFFFF',
+                    fontSize: 10,
+                    fontFamily: TYPOGRAPHY.bold,
+                    lineHeight: 14,
+                },
                 tabBarIcon: ({focused}) => (
                     <View
                         style={{
@@ -223,14 +289,26 @@ const _layout = () => {
                             borderRadius: 10,
                         }}
                     >
-                        <Community
-                            width={24}
-                            height={24}
-                            color={focused ? "#5096F1" : COLORS.secondary}
-                        />
+                        {focused ? (
+                            <Svg width={24} height={24} viewBox="16 17 24 24" fill="none">
+                                <Path d="M28 20 C24 20 21 27 21 27 V33 L19 35 V36 H37 V35 L35 33 V27 C35 27 32 20 28 20 Z" fill="#5096F1" />
+                                <Path d="M26 36 C26 37.1 26.9 38 28 38 C29.1 38 30 37.1 30 36 H26 Z" fill="#5096F1" />
+                            </Svg>
+                        ) : (
+                            <Notification
+                                width={24}
+                                height={24}
+                                color={COLORS.secondary}
+                            />
+                        )}
                     </View>
                 )
             }}
+            listeners={({ navigation }) => ({
+                tabPress: () => {
+                    setIsNotifBadgeCleared(true);
+                },
+            })}
         />
 
         <Tabs.Screen 

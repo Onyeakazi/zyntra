@@ -1,9 +1,7 @@
-import { Dimensions, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator, RefreshControl } from "react-native";
+import { Dimensions, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator, RefreshControl, TextInput } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import ScreenWrapper from "../../components/ScreenWrapper";
 import Search from "../../assets/vectors/search.svg";
-import Notification from "../../assets/vectors/bell.svg";
-import Message from "../../assets/vectors/send.svg";
 import Img from "../../assets/vectors/img.svg";
 import Vid from "../../assets/vectors/videos.svg";
 import Att from "../../assets/vectors/link.svg";
@@ -23,6 +21,8 @@ export default function Index() {
   const [feeds, setFeeds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchActive, setIsSearchActive] = useState(false);
 
   // Fetch avatar on mount
   useEffect(() => {
@@ -124,11 +124,30 @@ export default function Index() {
           style={{ width: logoWidth, height: logoWidth * 0.3, resizeMode: "contain" }}
         />
         <View style={styles.logoIcons}>
-          <Pressable><Search width={24} height={24} /></Pressable>
-          <Pressable><Notification width={24} height={24} /></Pressable>
-          <Pressable><Message width={24} height={24} /></Pressable>
+          <Pressable onPress={() => setIsSearchActive(!isSearchActive)}>
+            <Search width={24} height={24} color={isSearchActive ? "#5096F1" : "#000"} />
+          </Pressable>
         </View>
       </View>
+
+      {/* Inline Search Bar */}
+      {isSearchActive && (
+        <View style={styles.searchBarContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search posts or users..."
+            placeholderTextColor="#999"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoFocus
+          />
+          {searchQuery.length > 0 && (
+            <Pressable onPress={() => setSearchQuery("")} style={styles.searchClearButton}>
+              <Text style={styles.searchClearText}>✕</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
 
       {/* Upload Container */}
       <Pressable
@@ -197,11 +216,20 @@ export default function Index() {
     );
   }
 
+  const filteredFeeds = feeds.filter(post => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return true;
+    return (
+      (post.content && post.content.toLowerCase().includes(query)) ||
+      (post.user.name && post.user.name.toLowerCase().includes(query))
+    );
+  });
+
   return (
     <ScreenWrapper>
       <StatusBar style="dark" />
       <FlatList
-        data={feeds}
+        data={filteredFeeds}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <Feed item={item} />}
         showsVerticalScrollIndicator={false}
@@ -237,6 +265,36 @@ const styles = StyleSheet.create({
   logoIcons: {
     flexDirection: "row",
     gap: 16,
+    alignItems: "center",
+  },
+
+  searchBarContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginTop: scale(10),
+    marginBottom: scale(5),
+    height: 40,
+  },
+
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: TYPOGRAPHY.regular,
+    color: "#1F2937",
+    paddingVertical: 8,
+  },
+
+  searchClearButton: {
+    padding: 6,
+  },
+
+  searchClearText: {
+    fontSize: 14,
+    color: "#9CA3AF",
+    fontWeight: "bold",
   },
 
   storyWrapper: {
@@ -250,8 +308,8 @@ const styles = StyleSheet.create({
     borderStyle: "dotted",
     borderRadius: 10,
     borderColor: COLORS.accent,
-    marginVertical: scale(25),
-    padding: scale(25),
+    marginVertical: scale(10),
+    padding: scale(10),
   },
 
   imgCont: {
