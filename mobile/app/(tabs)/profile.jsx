@@ -220,7 +220,18 @@ const Profile = () => {
 
       const { data, error: fetchError } = await supabase
         .from("posts")
-        .select("*")
+        .select(`
+          *,
+          original_post:repost_id (
+            *,
+            user:user_id (
+              id,
+              full_name,
+              avatar_url,
+              username
+            )
+          )
+        `)
         .eq("user_id", targetUserId)
         .order("created_at", { ascending: false });
 
@@ -236,6 +247,7 @@ const Profile = () => {
         author_id: post.user_id,
         user: {
           name: userData?.full_name || "User",
+          username: userData?.username || "username",
           profilePic:
             userData?.avatar_url &&
             userData.avatar_url.trim() !== ""
@@ -243,8 +255,26 @@ const Profile = () => {
               : require("../../assets/images/default.png"),
         },
         content: post.content,
-        time: new Date(post.created_at).toLocaleTimeString(),
+        time: new Date(post.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         image: post.media_url ? { uri: post.media_url } : null,
+        repost_id: post.repost_id,
+        original_post: post.original_post ? {
+          id: post.original_post.id,
+          author_id: post.original_post.user_id,
+          content: post.original_post.content,
+          image: post.original_post.media_url ? { uri: post.original_post.media_url } : null,
+          media_type: post.original_post.media_type,
+          created_at: post.original_post.created_at,
+          time: new Date(post.original_post.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          user: {
+            name: post.original_post.user?.full_name || "User",
+            username: post.original_post.user?.username || "username",
+            profilePic:
+              post.original_post.user?.avatar_url && post.original_post.user.avatar_url.trim() !== ""
+                ? { uri: post.original_post.user.avatar_url }
+                : require("../../assets/images/default.png"),
+          }
+        } : null,
         likes: "0",
         comments: "0",
       }));

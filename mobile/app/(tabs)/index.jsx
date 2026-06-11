@@ -68,6 +68,7 @@ export default function Index() {
         author_id: post.author_id,
         user: {
           name: post.author_name || "User",
+          username: post.author_username || "username",
           profilePic:
             post.author_avatar && post.author_avatar.trim() !== ""
               ? { uri: post.author_avatar }
@@ -76,6 +77,24 @@ export default function Index() {
         content: post.content,
         time: new Date(post.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         image: post.media_url ? { uri: post.media_url } : null,
+        repost_id: post.repost_id,
+        original_post: post.repost_id ? {
+          id: post.repost_id,
+          author_id: post.original_author_id,
+          content: post.original_content,
+          image: post.original_media_url ? { uri: post.original_media_url } : null,
+          media_type: post.original_media_type,
+          created_at: post.original_created_at,
+          time: new Date(post.original_created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          user: {
+            name: post.original_author_name || "User",
+            username: post.original_author_username || "username",
+            profilePic:
+              post.original_author_avatar && post.original_author_avatar.trim() !== ""
+                ? { uri: post.original_author_avatar }
+                : require("../../assets/images/default.png"),
+          }
+        } : null,
         likes: "0",
         comments: "0",
       }));

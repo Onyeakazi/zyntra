@@ -70,8 +70,9 @@ const NotificationScreen = () => {
     fetchNotifications();
 
     // Setup realtime subscription for new incoming notifications
+    const uniqueChannelName = `notifications-realtime-${currentUserId}-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
-      .channel(`notifications-realtime-${currentUserId}`)
+      .channel(uniqueChannelName)
       .on(
         'postgres_changes',
         { 
@@ -194,6 +195,11 @@ const NotificationScreen = () => {
   const getNotificationText = (item) => {
     const senderName = item.sender?.full_name || "Someone";
     switch (item.type) {
+      case 'repost':
+        const repostPreview = item.posts?.content 
+          ? ` "${item.posts.content.substring(0, 25)}${item.posts.content.length > 25 ? '...' : ''}"` 
+          : "your post";
+        return `${senderName} reposted your post:${repostPreview}`;
       case 'reaction':
         if (item.comment_id) {
           const preview = item.post_comments?.content 

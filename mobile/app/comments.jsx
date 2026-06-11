@@ -15,6 +15,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { auth } from '../config/firebase';
 import ScreenWrapper from '../components/ScreenWrapper';
+import Feed from '../components/Feed';
 import { renderTextWithMentions, handleMentionPress } from '../utils/mentions';
 import Back from '../assets/vectors/back.svg';
 import TYPOGRAPHY from '../constants/typography';
@@ -27,6 +28,7 @@ export default function Comments() {
   const currentUserId = auth.currentUser?.uid;
 
   const [comments, setComments] = useState([]);
+  const [post, setPost] = useState(null);
   const [currentUserAvatar, setCurrentUserAvatar] = useState(null);
   const [loading, setLoading] = useState(true);
   const [commentText, setCommentText] = useState("");
@@ -138,6 +140,88 @@ export default function Comments() {
     inputRef.current?.focus();
   };
 
+  const fetchPostDetails = async () => {
+    if (!postId) return;
+    try {
+      const { data, error } = await supabase
+        .from("posts")
+        .select(`
+          id,
+          content,
+          media_url,
+          media_type,
+          created_at,
+          user_id,
+          repost_id,
+          users (
+            id,
+            full_name,
+            avatar_url,
+            username
+          )
+        `)
+        .eq("id", postId)
+        .single();
+
+      if (error) throw error;
+      if (data) {
+        const formatted = {
+          ...data,
+          author_id: data.user_id,
+          image: data.media_url ? { uri: data.media_url } : null,
+          user: {
+            name: data.users?.full_name || "User",
+            username: data.users?.username || "username",
+            profilePic: data.users?.avatar_url && data.users?.avatar_url.trim() !== ""
+              ? { uri: data.users.avatar_url }
+              : require("../assets/images/default.png")
+          },
+          time: new Date(data.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) + " at " + new Date(data.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+
+        if (data.repost_id) {
+          const { data: origData } = await supabase
+            .from("posts")
+            .select(`
+              id,
+              content,
+              media_url,
+              media_type,
+              created_at,
+              user_id,
+              users (
+                id,
+                full_name,
+                avatar_url,
+                username
+              )
+            `)
+            .eq("id", data.repost_id)
+            .single();
+
+          if (origData) {
+            formatted.original_post = {
+              ...origData,
+              author_id: origData.user_id,
+              image: origData.media_url ? { uri: origData.media_url } : null,
+              user: {
+                name: origData.users?.full_name || "User",
+                username: origData.users?.username || "username",
+                profilePic: origData.users?.avatar_url && origData.users?.avatar_url.trim() !== ""
+                  ? { uri: origData.users.avatar_url }
+                  : require("../assets/images/default.png")
+              },
+              time: new Date(origData.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) + " at " + new Date(origData.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+          }
+        }
+        setPost(formatted);
+      }
+    } catch (err) {
+      console.error("Error fetching post details:", err.message);
+    }
+  };
+
   const fetchComments = async (scrollToEnd = false) => {
     if (!postId) return;
     try {
@@ -229,10 +313,12 @@ export default function Comments() {
 
   // Setup queries and real-time subscription
   useEffect(() => {
+    fetchPostDetails();
     fetchComments();
 
+    const uniqueChannelName = `comments-realtime-${postId}-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
-      .channel(`comments-realtime-${postId}`)
+      .channel(uniqueChannelName)
       .on(
         'postgres_changes',
         {
@@ -590,7 +676,9 @@ export default function Comments() {
           <View style={styles.header}>
             <Pressable onPress={() => router.back()} style={styles.headerLeft}>
               <Back width={24} height={24} />
-              <Text style={styles.headerTitle}>Comments</Text>
+              <Text style={styles.headerTitle}>
+                {post ? `${post.user.name}'s post` : "Comments"}
+              </Text>
             </Pressable>
           </View>
 
@@ -609,6 +697,7 @@ export default function Comments() {
               showsVerticalScrollIndicator={false}
               onScroll={() => setActiveReactionsMenuId(null)}
               scrollEventThrottle={16}
+              ListHeaderComponent={post ? <Feed item={post} /> : null}
               ListEmptyComponent={
                 <View style={styles.emptyContainer}>
                   <Text style={styles.emptyText}>No comments yet</Text>

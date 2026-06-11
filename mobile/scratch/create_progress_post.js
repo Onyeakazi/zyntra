@@ -21,17 +21,19 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const userId = "yMW6kCQCIGVu5oBJERVuqYgdRM02"; // Chiemena Godswill
 
-const content = `Day 12 of building Zyntra 🚀
+const content = `Day 13 of building Zyntra 🚀
 
-Picked up from where I left off after yesterday's power outage. Just shipped a complete social engagement system:
+Shipped the next core pillars of our social infrastructure today:
 
-• Facebook-style Reactions: Long-press to love, care, laugh, cry, wow, or get angry. Select any emoji with a floating selector.
-• Overlapping Emoji Badges & direct action counts sitting close to each icon (Likes, Comments, Shares, Bookmarks).
-• Full-screen Keyboard-Avoiding Comments view with real-time sync.
-• Bookmarks / Saved Posts showing active bookmark state and total saves count.
-• Refactored Link Sharing (Native Share sheet + Clipboard Copy link) with real-time share counters.
+• Real-time Notification Engine: Automatically triggers alerts for reactions, comments, replies, mentions, and connection requests.
+• Bottom tab notification badge counters syncing in real-time.
+• Full Notification Hub with inline Connection Request actions (instant Accept/Decline) and Mark-as-read/Mark-all-as-read options.
+• Clickable User Mentions: Highlighted in blue and bold inside posts, comments, and replies, routing directly to the user's profile.
+• Premium Autocomplete Mention Suggestions: Floating user matching dropdown triggered when typing '@' in comments or post creators.
+• Reddit-style Comment Thread Lines: Vertical connector line segments and horizontal branch lines linking nested replies to parent comment avatars.
+• Home Header Declutter: Cleaned up duplicate icons and built a toggleable inline search feed filter.
 
-Powering it all with React Native (Expo) & Supabase Postgres real-time channels! ⚡
+Powering it all with React Native (Expo) & Supabase Postgres triggers + real-time subscription! ⚡
 
 #buildinpublic #reactnative #supabase #indiedev #mobiledev`;
 

@@ -110,8 +110,9 @@ const AddFriends = () => {
     const user = auth.currentUser;
     if (user) {
       console.log("[AddFriends Debug] Registering real-time listener...");
+      const uniqueChannelName = `add-friends-realtime-changes-${Math.random().toString(36).substring(2, 9)}`;
       channel = supabase
-        .channel('add-friends-realtime-changes')
+        .channel(uniqueChannelName)
         .on(
           'postgres_changes',
           {

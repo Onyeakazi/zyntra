@@ -28,6 +28,7 @@ import LinkIcon from "../assets/vectors/link.svg";
 export default function CreatePost() {
   const params = useLocalSearchParams();
   const editId = params?.editId;
+  const quoteId = params?.quoteId;
 
   const [avatar, setAvatar] = useState(null);
   const [content, setContent] = useState("");
@@ -35,6 +36,9 @@ export default function CreatePost() {
   const [linkInputVisible, setLinkInputVisible] = useState(false);
   const [tempLink, setTempLink] = useState("");
   const [posting, setPosting] = useState(false);
+
+  const [quotePostData, setQuotePostData] = useState(null);
+  const [quotePostLoading, setQuotePostLoading] = useState(false);
 
   const [allUsers, setAllUsers] = useState([]);
   const [suggestedUsers, setSuggestedUsers] = useState([]);
@@ -85,12 +89,42 @@ export default function CreatePost() {
     setSuggestedUsers([]);
   };
 
+  const fetchPostToQuote = async () => {
+    try {
+      setQuotePostLoading(true);
+      console.log("Pre-loading quote post details, id:", quoteId);
+      const { data, error } = await supabase
+        .from("posts")
+        .select(`
+          *,
+          user:user_id (
+            id,
+            full_name,
+            avatar_url,
+            username
+          )
+        `)
+        .eq("id", quoteId)
+        .single();
+
+      if (error) throw error;
+      setQuotePostData(data);
+    } catch (err) {
+      console.error("Error fetching quote post:", err);
+    } finally {
+      setQuotePostLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchUser();
     if (editId) {
       fetchPostToEdit();
     }
-  }, [editId]);
+    if (quoteId) {
+      fetchPostToQuote();
+    }
+  }, [editId, quoteId]);
 
   const fetchPostToEdit = async () => {
     try {
@@ -351,7 +385,7 @@ export default function CreatePost() {
   };
 
   const handlePost = async () => {
-    if (!content.trim() && (!selectedMedia || selectedMedia.length === 0)) {
+    if (!content.trim() && (!selectedMedia || selectedMedia.length === 0) && !quoteId) {
       alert("Please write something or add media to post!");
       return;
     }
@@ -408,6 +442,7 @@ export default function CreatePost() {
             content: content,
             media_url: finalMediaUrl,
             media_type: finalMediaType,
+            repost_id: quoteId || null,
             created_at: new Date().toISOString(),
           });
 
@@ -573,6 +608,56 @@ export default function CreatePost() {
                 </View>
               ))}
             </ScrollView>
+          </View>
+        )}
+        {/* Quote Post Preview inside creator */}
+        {quoteId && quotePostData && (
+          <View style={styles.quoteNestedContainer}>
+            <View style={styles.quoteHeader}>
+              <View style={styles.quoteHeaderUser}>
+                <Image
+                  source={
+                    quotePostData.user?.avatar_url && quotePostData.user.avatar_url.trim() !== ""
+                      ? { uri: quotePostData.user.avatar_url }
+                      : require("../assets/images/default.png")
+                  }
+                  style={styles.quoteProfile}
+                />
+                <View style={styles.quoteUserInfo}>
+                  <Text style={styles.quoteName}>{quotePostData.user?.full_name || "User"}</Text>
+                  <Text style={styles.quoteUsername}>@{quotePostData.user?.username || "username"}</Text>
+                </View>
+              </View>
+              <Text style={styles.quoteTime}>
+                {new Date(quotePostData.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </Text>
+            </View>
+            
+            {quotePostData.content ? (
+              <Text style={styles.quoteContentText} numberOfLines={3}>
+                {quotePostData.content}
+              </Text>
+            ) : null}
+            
+            {(() => {
+              const getOrigImagesList = () => {
+                const origImg = quotePostData.media_url;
+                if (!origImg) return [];
+                if (origImg.includes(',')) {
+                  return origImg.split(',').map(url => ({ uri: url }));
+                }
+                return [{ uri: origImg }];
+              };
+              const origImages = getOrigImagesList();
+              if (origImages.length === 0) return null;
+              return (
+                <Image
+                  source={origImages[0]}
+                  style={styles.quoteImage}
+                  resizeMode="cover"
+                />
+              );
+            })()}
           </View>
         )}
       </ScrollView>
@@ -891,5 +976,69 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#6B7280',
     marginTop: 1,
+  },
+
+  quoteNestedContainer: {
+    marginTop: 15,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    borderRadius: 10,
+    padding: 12,
+    backgroundColor: "#f9f9f9",
+    marginBottom: 20,
+  },
+
+  quoteHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+
+  quoteHeaderUser: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
+  quoteProfile: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+  },
+
+  quoteUserInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+
+  quoteName: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#333",
+  },
+
+  quoteUsername: {
+    fontSize: 11,
+    color: "#777",
+  },
+
+  quoteTime: {
+    fontSize: 11,
+    color: "#999",
+  },
+
+  quoteContentText: {
+    fontSize: 13,
+    color: "#333",
+    lineHeight: 18,
+  },
+
+  quoteImage: {
+    width: "100%",
+    height: 140,
+    borderRadius: 8,
+    marginTop: 10,
   },
 });

@@ -83,8 +83,9 @@ const _layout = () => {
 
                 // Listen for connections and notifications updates in real-time
                 console.log("[Badge Debug] Registering Supabase Realtime channel...");
+                const uniqueChannelName = `connections-badge-changes-${Math.random().toString(36).substring(2, 9)}`;
                 channel = supabase
-                    .channel('connections-badge-changes')
+                    .channel(uniqueChannelName)
                     .on(
                         'postgres_changes',
                         {
