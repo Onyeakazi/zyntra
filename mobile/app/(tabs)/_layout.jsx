@@ -1,24 +1,59 @@
-import { Stack, Tabs } from "expo-router";
+import { Stack, Tabs, useSegments } from "expo-router";
 import House from "../../assets/vectors/House.svg";
 import AddUser from "../../assets/vectors/addUser.svg";
 import Message from "../../assets/vectors/send.svg";
 import Notification from "../../assets/vectors/notification.svg";
 import Profile from "../../assets/vectors/profileImg.svg";
 import COLORS from "../../constants/colors";
-import { Image, View } from "react-native";
+import { Image, View, DeviceEventEmitter } from "react-native";
 import { supabase } from "../../lib/supabase";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { auth } from "../../config/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import TYPOGRAPHY from "../../constants/typography";
 import Svg, { Path, Circle } from "react-native-svg";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const _layout = () => {
+const TabLayout = () => {
     const [avatar, setAvatar] = useState(null);
     const [requestCount, setRequestCount] = useState(0);
     const [isBadgeCleared, setIsBadgeCleared] = useState(false);
     const [notificationCount, setNotificationCount] = useState(0);
     const [isNotifBadgeCleared, setIsNotifBadgeCleared] = useState(false);
+    const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+    const [isMessageBadgeCleared, setIsMessageBadgeCleared] = useState(false);
+
+    const segments = useSegments();
+    const isMessageTabFocused = segments.includes('message');
+    const isAddFriendsTabFocused = segments.includes('addFriends');
+    const isNotifTabFocused = segments.includes('notification');
+
+    // Keep a ref so async/closure callbacks can read the latest focused state
+    const isMessageTabFocusedRef = useRef(isMessageTabFocused);
+    useEffect(() => {
+        isMessageTabFocusedRef.current = isMessageTabFocused;
+    }, [isMessageTabFocused]);
+
+    // When entering the message tab, mark badges as cleared.
+    // We do NOT reset to false on tab leave — only new incoming events do that.
+    useEffect(() => {
+        if (isMessageTabFocused) {
+            setIsMessageBadgeCleared(true);
+            setUnreadMessagesCount(0);
+        }
+    }, [isMessageTabFocused]);
+
+    useEffect(() => {
+        if (isAddFriendsTabFocused) {
+            setIsBadgeCleared(true);
+        }
+    }, [isAddFriendsTabFocused]);
+
+    useEffect(() => {
+        if (isNotifTabFocused) {
+            setIsNotifBadgeCleared(true);
+        }
+    }, [isNotifTabFocused]);
     const fetchRequestCount = async (user) => {
         if (!user) return;
         console.log("[Badge Debug] Fetching connection requests for:", user.uid);
@@ -55,6 +90,25 @@ const _layout = () => {
         }
     };
 
+    const fetchUnreadMessagesCount = async (user) => {
+        if (!user) return;
+        console.log("[Badge Debug] Fetching unread messages count for:", user.uid);
+        const { data, error } = await supabase
+            .from("messages")
+            .select("id, conversations!inner(user_1, user_2)")
+            .neq("sender_id", user.uid)
+            .eq("is_read", false)
+            .or(`user_1.eq.${user.uid},user_2.eq.${user.uid}`, { foreignTable: 'conversations' });
+
+        if (error) {
+            console.error("[Badge Debug] Error fetching unread messages:", error.message);
+        } else {
+            const count = data?.length || 0;
+            console.log("[Badge Debug] Found unread messages count:", count);
+            setUnreadMessagesCount(count);
+        }
+    };
+
     const fetchAvatar = async (user) => {
         if (!user) return;
         const { data, error } = await supabase.from("users")
@@ -69,6 +123,9 @@ const _layout = () => {
 
     useEffect(() => {
         let channel = null;
+        let presenceChannel = null;
+        let statusUpdateSub = null;
+        let userInboxChannel = null;
 
         const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
             console.log("[Badge Debug] onAuthStateChanged fired! User logged in:", !!user);
@@ -76,10 +133,84 @@ const _layout = () => {
                 fetchAvatar(user);
                 fetchRequestCount(user);
                 fetchNotificationCount(user);
+                fetchUnreadMessagesCount(user);
 
                 if (channel) {
                     supabase.removeChannel(channel);
                 }
+                if (presenceChannel) {
+                    supabase.removeChannel(presenceChannel);
+                }
+                if (userInboxChannel) {
+                    supabase.removeChannel(userInboxChannel);
+                }
+
+                // Register global online presence
+                presenceChannel = supabase.channel('online-users', {
+                    config: {
+                        presence: {
+                            key: user.uid,
+                        },
+                    },
+                });
+
+                presenceChannel
+                    .on('presence', { event: 'sync' }, () => {
+                        const state = presenceChannel.presenceState();
+                        global.latestPresenceState = state;
+                        DeviceEventEmitter.emit('presence_sync', state);
+                    })
+                    .subscribe(async (status) => {
+                        if (status === 'SUBSCRIBED') {
+                            let savedNote = "";
+                            try {
+                                savedNote = await AsyncStorage.getItem(`status_note_${user.uid}`) || "";
+                            } catch (err) {
+                                console.error("Error reading saved status note:", err);
+                            }
+                            await presenceChannel.track({
+                                user_id: user.uid,
+                                online_at: new Date().toISOString(),
+                                status_note: savedNote,
+                            });
+                        }
+                    });
+
+                // Listen for local updates to status note (e.g. from messages tab)
+                if (statusUpdateSub) statusUpdateSub.remove();
+                statusUpdateSub = DeviceEventEmitter.addListener('update_status_note', async (newNote) => {
+                    if (presenceChannel) {
+                        try {
+                            await presenceChannel.track({
+                                user_id: user.uid,
+                                online_at: new Date().toISOString(),
+                                status_note: newNote,
+                            });
+                        } catch (err) {
+                            console.error("Error tracking status note update:", err);
+                        }
+                    }
+                });
+
+                // Subscribe to personal inbox broadcasts (to sync unread badges instantly)
+                const userInboxChannelName = `user-inbox-${user.uid}`;
+                userInboxChannel = supabase
+                    .channel(userInboxChannelName)
+                    .on(
+                        'broadcast',
+                        { event: 'new_message' },
+                        (payload) => {
+                            console.log("[Broadcast Debug] Global user-inbox broadcast received in layout:", payload);
+                            // Only bump badge if user is NOT already on the messages tab
+                            if (!isMessageTabFocusedRef.current) {
+                                fetchUnreadMessagesCount(user);
+                                setIsMessageBadgeCleared(false);
+                            }
+                        }
+                    )
+                    .subscribe((status) => {
+                        console.log(`[Broadcast Debug] user-inbox subscription status: ${status}`);
+                    });
 
                 // Listen for connections and notifications updates in real-time
                 console.log("[Badge Debug] Registering Supabase Realtime channel...");
@@ -127,6 +258,36 @@ const _layout = () => {
                             }
                         }
                     )
+                    .on(
+                        'postgres_changes',
+                        {
+                            event: '*',
+                            schema: 'public',
+                            table: 'messages'
+                        },
+                        (payload) => {
+                            console.log("[Badge Debug] Message Realtime payload received:", payload.eventType);
+                            if (!isMessageTabFocusedRef.current) {
+                                fetchUnreadMessagesCount(user);
+                                setIsMessageBadgeCleared(false);
+                            }
+                        }
+                    )
+                    .on(
+                        'postgres_changes',
+                        {
+                            event: '*',
+                            schema: 'public',
+                            table: 'conversations'
+                        },
+                        (payload) => {
+                            console.log("[Badge Debug] Conversation Realtime payload received:", payload.eventType);
+                            if (!isMessageTabFocusedRef.current) {
+                                fetchUnreadMessagesCount(user);
+                                setIsMessageBadgeCleared(false);
+                            }
+                        }
+                    )
                     .subscribe((status) => {
                         console.log("[Badge Debug] Realtime channel status changed to:", status);
                     });
@@ -134,9 +295,22 @@ const _layout = () => {
                 setAvatar(null);
                 setRequestCount(0);
                 setNotificationCount(0);
+                setUnreadMessagesCount(0);
                 if (channel) {
                     supabase.removeChannel(channel);
                     channel = null;
+                }
+                if (presenceChannel) {
+                    supabase.removeChannel(presenceChannel);
+                    presenceChannel = null;
+                }
+                if (statusUpdateSub) {
+                    statusUpdateSub.remove();
+                    statusUpdateSub = null;
+                }
+                if (userInboxChannel) {
+                    supabase.removeChannel(userInboxChannel);
+                    userInboxChannel = null;
                 }
             }
         });
@@ -145,6 +319,15 @@ const _layout = () => {
             unsubscribeAuth();
             if (channel) {
                 supabase.removeChannel(channel);
+            }
+            if (presenceChannel) {
+                supabase.removeChannel(presenceChannel);
+            }
+            if (statusUpdateSub) {
+                statusUpdateSub.remove();
+            }
+            if (userInboxChannel) {
+                supabase.removeChannel(userInboxChannel);
             }
         };
     }, []);
@@ -244,6 +427,14 @@ const _layout = () => {
             options={{
                 title: "Message",
                 headerShown: false,
+                tabBarBadge: (!isMessageBadgeCleared && unreadMessagesCount > 0) ? (unreadMessagesCount > 10 ? '10+' : unreadMessagesCount) : undefined,
+                tabBarBadgeStyle: {
+                    backgroundColor: '#FF3B30',
+                    color: '#FFFFFF',
+                    fontSize: 10,
+                    fontFamily: TYPOGRAPHY.bold,
+                    lineHeight: 14,
+                },
                 tabBarIcon: ({focused}) => (
                     <View
                         style={{
@@ -267,6 +458,12 @@ const _layout = () => {
                     </View> 
                 )
             }}
+            listeners={({ navigation }) => ({
+                tabPress: () => {
+                    setIsMessageBadgeCleared(true);
+                    setUnreadMessagesCount(0);
+                },
+            })}
         />
 
         <Tabs.Screen 
@@ -352,4 +549,4 @@ const _layout = () => {
   )
 }
 
-export default _layout
+export default TabLayout

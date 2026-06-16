@@ -47,7 +47,8 @@ const NotificationScreen = () => {
             username
           ),
           posts (
-            content
+            content,
+            repost_id
           ),
           post_comments (
             content
@@ -194,52 +195,109 @@ const NotificationScreen = () => {
 
   const getNotificationText = (item) => {
     const senderName = item.sender?.full_name || "Someone";
+    
+    const renderSender = () => (
+      <Text style={styles.boldText}>{senderName}</Text>
+    );
+
     switch (item.type) {
       case 'repost':
         const repostPreview = item.posts?.content 
           ? ` "${item.posts.content.substring(0, 25)}${item.posts.content.length > 25 ? '...' : ''}"` 
-          : "your post";
-        return `${senderName} reposted your post:${repostPreview}`;
+          : "";
+        return repostPreview ? (
+          <>{renderSender()} reposted your post:{repostPreview}</>
+        ) : (
+          <>{renderSender()} reposted your post</>
+        );
       case 'reaction':
         if (item.comment_id) {
           const preview = item.post_comments?.content 
             ? ` "${item.post_comments.content.substring(0, 25)}${item.post_comments.content.length > 25 ? '...' : ''}"` 
-            : "your comment";
-          return `${senderName} reacted to your comment:${preview}`;
+            : "";
+          return preview ? (
+            <>{renderSender()} reacted to your comment:{preview}</>
+          ) : (
+            <>{renderSender()} reacted to your comment</>
+          );
         } else {
+          if (item.posts?.repost_id) {
+            const preview = item.posts?.content 
+              ? ` "${item.posts.content.substring(0, 25)}${item.posts.content.length > 25 ? '...' : ''}"` 
+              : "";
+            return preview ? (
+              <>{renderSender()} reacted to the post you reshared:{preview}</>
+            ) : (
+              <>{renderSender()} reacted to the post you reshared</>
+            );
+          }
           const preview = item.posts?.content 
             ? ` "${item.posts.content.substring(0, 25)}${item.posts.content.length > 25 ? '...' : ''}"` 
-            : "your post";
-          return `${senderName} reacted to your post:${preview}`;
+            : "";
+          return preview ? (
+            <>{renderSender()} reacted to your post:{preview}</>
+          ) : (
+            <>{renderSender()} reacted to your post</>
+          );
         }
       case 'comment':
         const commentPreview = item.post_comments?.content 
           ? ` "${item.post_comments.content.substring(0, 25)}${item.post_comments.content.length > 25 ? '...' : ''}"` 
-          : "your post";
-        return `${senderName} commented on your post:${commentPreview}`;
+          : "";
+        if (item.posts?.repost_id) {
+          return commentPreview ? (
+            <>{renderSender()} commented on the post you reshared:{commentPreview}</>
+          ) : (
+            <>{renderSender()} commented on the post you reshared</>
+          );
+        }
+        return commentPreview ? (
+          <>{renderSender()} commented on your post:{commentPreview}</>
+        ) : (
+          <>{renderSender()} commented on your post</>
+        );
       case 'reply':
         const replyPreview = item.post_comments?.content 
           ? ` "${item.post_comments.content.substring(0, 25)}${item.post_comments.content.length > 25 ? '...' : ''}"` 
-          : "your comment";
-        return `${senderName} replied to your comment:${replyPreview}`;
+          : "";
+        return replyPreview ? (
+          <>{renderSender()} replied to your comment:{replyPreview}</>
+        ) : (
+          <>{renderSender()} replied to your comment</>
+        );
       case 'connection_request':
-        return `${senderName} sent you a connection request.`;
+        return <>{renderSender()} sent you a connection request.</>;
       case 'connection_accepted':
-        return `${senderName} accepted your connection request.`;
+        return <>{renderSender()} accepted your connection request.</>;
       case 'mention':
         if (item.comment_id) {
           const preview = item.post_comments?.content 
             ? ` "${item.post_comments.content.substring(0, 25)}${item.post_comments.content.length > 25 ? '...' : ''}"` 
-            : "a comment";
-          return `${senderName} mentioned you in a comment:${preview}`;
+            : "";
+          return preview ? (
+            <>{renderSender()} mentioned you in a comment:{preview}</>
+          ) : (
+            <>{renderSender()} mentioned you in a comment</>
+          );
         } else {
           const preview = item.posts?.content 
             ? ` "${item.posts.content.substring(0, 25)}${item.posts.content.length > 25 ? '...' : ''}"` 
-            : "a post";
-          return `${senderName} mentioned you in a post:${preview}`;
+            : "";
+          if (item.posts?.repost_id) {
+            return preview ? (
+              <>{renderSender()} mentioned you in a reshared post:{preview}</>
+            ) : (
+              <>{renderSender()} mentioned you in a reshared post</>
+            );
+          }
+          return preview ? (
+            <>{renderSender()} mentioned you in a post:{preview}</>
+          ) : (
+            <>{renderSender()} mentioned you in a post</>
+          );
         }
       default:
-        return `${senderName} interacted with your account.`;
+        return <>{renderSender()} interacted with your account.</>;
     }
   };
 
@@ -383,7 +441,7 @@ const NotificationScreen = () => {
                 <Text style={styles.emptyIcon}><Notification width={30} height={30} /></Text>
                 <Text style={styles.emptyText}>All caught up!</Text>
                 <Text style={styles.emptySubText}>
-                  When other users react, comment, mention or connect with you, they'll show up here.
+                  {"When other users react, comment, mention or connect with you, they'll show up here."}
                 </Text>
               </View>
             }
@@ -500,6 +558,11 @@ const styles = StyleSheet.create({
     color: '#1F2937',
     lineHeight: 18,
     fontFamily: TYPOGRAPHY.regular,
+  },
+
+  boldText: {
+    fontFamily: TYPOGRAPHY.semiBold,
+    color: '#111111',
   },
 
   timeText: {

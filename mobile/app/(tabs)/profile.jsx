@@ -482,47 +482,71 @@ const Profile = () => {
                     </Pressable>
                   </>
                 ) : (
-                  <Pressable
-                    style={[
-                      styles.editBtn,
-                      {
-                        backgroundColor: connectionStatus === "accepted" 
-                          ? "#F3F4F6" 
-                          : connectionStatus === "pending" && connectionInitiator === currentUserId 
-                            ? "#F3F4F6" 
-                            : COLORS.accent,
-                        borderColor: connectionStatus === "accepted" || (connectionStatus === "pending" && connectionInitiator === currentUserId)
-                          ? "#E5E7EB" 
-                          : COLORS.accent,
-                        paddingHorizontal: scale(50),
-                        minWidth: scale(200),
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }
-                    ]}
-                    onPress={handleToggleConnection}
-                  >
-                    <Text
+                  <>
+                    <Pressable
                       style={[
-                        styles.settingText,
-                        { 
-                          color: connectionStatus === "accepted" 
-                            ? "#4B5563" 
+                        styles.editBtn,
+                        {
+                          backgroundColor: connectionStatus === "accepted" 
+                            ? "#F3F4F6" 
                             : connectionStatus === "pending" && connectionInitiator === currentUserId 
-                              ? "#888888" 
-                              : "#FFFFFF" 
+                              ? "#F3F4F6" 
+                              : COLORS.accent,
+                          borderColor: connectionStatus === "accepted" || (connectionStatus === "pending" && connectionInitiator === currentUserId)
+                            ? "#E5E7EB" 
+                            : COLORS.accent,
+                          paddingHorizontal: scale(24),
+                          minWidth: scale(110),
+                          alignItems: 'center',
+                          justifyContent: 'center',
                         }
                       ]}
+                      onPress={handleToggleConnection}
                     >
-                      {connectionStatus === "accepted" 
-                        ? "CONNECTED" 
-                        : connectionStatus === "pending" 
-                          ? connectionInitiator === currentUserId 
-                            ? "REQUESTED" 
-                            : "ACCEPT REQUEST" 
-                          : "CONNECT"}
-                    </Text>
-                  </Pressable>
+                      <Text
+                        style={[
+                          styles.settingText,
+                          { 
+                            color: connectionStatus === "accepted" 
+                              ? "#4B5563" 
+                              : connectionStatus === "pending" && connectionInitiator === currentUserId 
+                                ? "#888888" 
+                                : "#FFFFFF" 
+                          }
+                        ]}
+                      >
+                        {connectionStatus === "accepted" 
+                          ? "CONNECTED" 
+                          : connectionStatus === "pending" 
+                            ? connectionInitiator === currentUserId 
+                              ? "REQUESTED" 
+                              : "ACCEPT REQUEST" 
+                            : "CONNECT"}
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      style={[
+                        styles.editBtn,
+                        {
+                          backgroundColor: "#F3F4F6",
+                          borderColor: "#E5E7EB",
+                          paddingHorizontal: scale(24),
+                          minWidth: scale(110),
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }
+                      ]}
+                      onPress={() => router.push({
+                        pathname: "/chat",
+                        params: { recipientId: userId }
+                      })}
+                    >
+                      <Text style={[styles.settingText, { color: "#4B5563" }]}>
+                        MESSAGE
+                      </Text>
+                    </Pressable>
+                  </>
                 )}
               </View>
 

@@ -186,7 +186,7 @@ export default function Index() {
               borderRadius: 20,
             }}
           />
-          <Text style={{ fontFamily: TYPOGRAPHY.regular, fontSize: 18 }}>What's on your mind?</Text>
+          <Text style={{ fontFamily: TYPOGRAPHY.regular, fontSize: 18 }}>{"What's on your mind?"}</Text>
         </View>
 
         <View style={styles.uploads}>

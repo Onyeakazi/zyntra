@@ -34,7 +34,7 @@ if (!isExpoGo) {
   }
 }
 
-const login = () => {
+const Login = () => {
     const [active, setActive] = useState("signin");
     const [isFocused, setIsFocused] = useState(false);
     const [fullName, setFullName] = useState("");
@@ -433,7 +433,7 @@ const login = () => {
 
                     <View style={{flexDirection: "row", justifyContent: "center", marginTop: 30}}>
                         <Text style={{fontFamily: TYPOGRAHPY.medium, fontSize: 16, color: "#656F78"}}>
-                            Don't have an Account{" "}
+                            {"Don't have an Account "}
                             <Text onPress={() => setActive("signup")} style={{ color: "#5398F1" }}>
                                 Sign Up
                             </Text>
@@ -535,7 +535,7 @@ const login = () => {
   )
 }
 
-export default login
+export default Login
 
 const styles = StyleSheet.create({
     authBtns: {
