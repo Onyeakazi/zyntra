@@ -9,18 +9,20 @@ import {
   ActivityIndicator,
   RefreshControl,
   Modal,
-  DeviceEventEmitter
+  DeviceEventEmitter,
+  Alert
 } from 'react-native';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import { StatusBar } from 'expo-status-bar';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
 import { auth } from '../../config/firebase';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import TYPOGRAPHY from '../../constants/typography';
 import COLORS from '../../constants/colors';
-import Svg, { Circle, Line, Path } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Polyline } from 'react-native-svg';
 
 // Custom inline SVG icons
 const SearchIcon = ({ color = "#888", size = 18 }) => (
@@ -35,6 +37,40 @@ const EmptyChatIcon = ({ color = "#6B7280", size = 40 }) => (
     <Path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
   </Svg>
 );
+
+const SentCheckIcon = ({ color = "#B9BFC9", size = 14, filled = false }) => {
+  if (filled) {
+    return (
+      <View style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: '#111111',
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}>
+        <Svg width={size - 6} height={size - 6} viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round">
+          <Polyline points="20 6 9 17 4 12" />
+        </Svg>
+      </View>
+    );
+  }
+  return (
+    <View style={{
+      width: size,
+      height: size,
+      borderRadius: size / 2,
+      borderWidth: 1.5,
+      borderColor: color,
+      justifyContent: 'center',
+      alignItems: 'center',
+    }}>
+      <Svg width={size - 6} height={size - 6} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round">
+        <Polyline points="20 6 9 17 4 12" />
+      </Svg>
+    </View>
+  );
+};
 
 const MessageScreen = () => {
   const router = useRouter();
@@ -132,10 +168,18 @@ const MessageScreen = () => {
             full_name,
             avatar_url,
             username
+          ),
+          messages (
+            id,
+            sender_id,
+            is_read,
+            created_at
           )
         `)
         .or(`user_1.eq.${currentUserId},user_2.eq.${currentUserId}`)
-        .order("updated_at", { ascending: false });
+        .order("updated_at", { ascending: false })
+        .order("created_at", { foreignTable: "messages", ascending: false })
+        .limit(1, { foreignTable: "messages" });
 
       if (error) throw error;
 
@@ -162,6 +206,15 @@ const MessageScreen = () => {
       setRefreshing(false);
     }
   };
+
+  useFocusEffect(
+    useCallback(() => {
+      if (currentUserId) {
+        fetchConversations();
+        fetchConnections();
+      }
+    }, [currentUserId])
+  );
 
   useEffect(() => {
     fetchConversations();
@@ -205,7 +258,7 @@ const MessageScreen = () => {
       setOnlineUserNotes(notes);
     });
 
-    // Setup live subscription for conversations changes
+    // Setup live subscription for conversations and connections changes
     const uniqueChannelName = `conversations-realtime-${currentUserId}-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
       .channel(uniqueChannelName)
@@ -229,6 +282,21 @@ const MessageScreen = () => {
         },
         () => {
           fetchConversations();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'connections'
+        },
+        (payload) => {
+          console.log("[MessageScreen Debug] Connection change detected:", payload.eventType);
+          const record = payload.new || payload.old;
+          if (payload.eventType === 'DELETE' || (record && (record.friend_id === currentUserId || record.user_id === currentUserId))) {
+            fetchConnections();
+          }
         }
       )
       .subscribe();
@@ -259,6 +327,78 @@ const MessageScreen = () => {
     fetchConversations();
     fetchConnections();
     fetchCurrentUserProfile();
+  };
+
+  const handleMarkAsRead = async (conversationId) => {
+    try {
+      const { error } = await supabase
+        .from("messages")
+        .update({ is_read: true })
+        .eq("conversation_id", conversationId)
+        .neq("sender_id", currentUserId)
+        .eq("is_read", false);
+
+      if (error) throw error;
+      fetchConversations();
+    } catch (err) {
+      console.error("Error marking conversation as read:", err.message);
+    }
+  };
+
+  const handleMarkAsUnread = async (conversationId) => {
+    try {
+      // Find the latest message in this conversation sent by the other user
+      const { data: latestReceivedMsg, error: fetchErr } = await supabase
+        .from("messages")
+        .select("id")
+        .eq("conversation_id", conversationId)
+        .neq("sender_id", currentUserId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (fetchErr) throw fetchErr;
+
+      if (latestReceivedMsg) {
+        const { error: updateErr } = await supabase
+          .from("messages")
+          .update({ is_read: false })
+          .eq("id", latestReceivedMsg.id);
+
+        if (updateErr) throw updateErr;
+        fetchConversations();
+      }
+    } catch (err) {
+      console.error("Error marking conversation as unread:", err.message);
+    }
+  };
+
+  const showChatOptions = (conv) => {
+    const recipient = conv.user_1 === currentUserId ? conv.user2 : conv.user1;
+    if (!recipient) return;
+
+    const unreadCount = unreadCounts[conv.id] || 0;
+    const isUnread = unreadCount > 0;
+
+    const options = [];
+    if (isUnread) {
+      options.push({
+        text: "Mark as Read",
+        onPress: () => handleMarkAsRead(conv.id)
+      });
+    } else {
+      options.push({
+        text: "Mark as Unread",
+        onPress: () => handleMarkAsUnread(conv.id)
+      });
+    }
+    options.push({ text: "Cancel", style: "cancel" });
+
+    Alert.alert(
+      recipient.full_name || "Chat Options",
+      "Manage this conversation thread",
+      options
+    );
   };
 
   const getRelativeTime = (isoString) => {
@@ -317,6 +457,7 @@ const MessageScreen = () => {
           pathname: "/chat",
           params: { conversationId: item.id }
         })}
+        onLongPress={() => showChatOptions(item)}
         style={styles.chatCard}
       >
         <View style={styles.avatarContainer}>
@@ -352,12 +493,29 @@ const MessageScreen = () => {
           <Text style={styles.timeText}>
             {getRelativeTime(item.updated_at)}
           </Text>
-          {isUnread && (
+          {isUnread ? (
             <View style={styles.unreadBadge}>
               <Text style={styles.unreadBadgeText}>
                 {unreadCount > 9 ? '9+' : unreadCount}
               </Text>
             </View>
+          ) : (
+            item.last_sender_id === currentUserId && item.messages && item.messages.length > 0 && (
+              <View style={styles.readStatusContainerCard}>
+                {item.messages[0].is_read ? (
+                  <Image
+                    source={
+                      recipient.avatar_url && recipient.avatar_url.trim() !== ""
+                        ? { uri: recipient.avatar_url }
+                        : require("../../assets/images/default.png")
+                    }
+                    style={styles.tinyReadAvatarCard}
+                  />
+                ) : (
+                  <SentCheckIcon size={12} filled={recipient && onlineUserIds.includes(recipient.id)} />
+                )}
+              </View>
+            )
           )}
         </View>
       </Pressable>
@@ -830,6 +988,20 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 10,
     fontFamily: TYPOGRAPHY.bold,
+  },
+
+  readStatusContainerCard: {
+    marginTop: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  tinyReadAvatarCard: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 0.5,
+    borderColor: '#E5E7EB',
   },
 
   emptyContainer: {

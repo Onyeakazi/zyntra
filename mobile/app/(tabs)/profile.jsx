@@ -28,6 +28,7 @@ import Button from "../../components/Button";
 import { auth } from "../../config/firebase";
 import { signOut } from "firebase/auth";
 import { supabase } from "../../lib/supabase";
+import { acceptConnectionInDB } from "../../utils/connectionHelpers";
 
 const Profile = () => {
   const { userId } = useLocalSearchParams();
@@ -79,6 +80,7 @@ const Profile = () => {
           setConnectionStatus(null);
           setConnectionInitiator(null);
           setFollowersCount(prev => Math.max(0, prev - 1));
+          setFollowingCount(prev => Math.max(0, prev - 1));
         }
       } else if (connectionStatus === "pending") {
         if (connectionInitiator === currentUserId) {
@@ -94,14 +96,13 @@ const Profile = () => {
           }
         } else {
           // Accept incoming request
-          const { error } = await supabase
-            .from("connections")
-            .update({ status: "accepted" })
-            .eq("user_id", userId)
-            .eq("friend_id", currentUserId);
-          if (!error) {
+          try {
+            await acceptConnectionInDB(userId, currentUserId);
             setConnectionStatus("accepted");
             setFollowersCount(prev => prev + 1);
+            setFollowingCount(prev => prev + 1);
+          } catch (err) {
+            console.error("Error accepting request in profile:", err);
           }
         }
       } else {
@@ -149,6 +150,39 @@ const Profile = () => {
     }, [userId])
   );
 
+  useEffect(() => {
+    const targetUserId = userId || auth.currentUser?.uid;
+    if (!targetUserId) return;
+
+    console.log("[Profile Debug] Registering real-time listener for targetUser:", targetUserId);
+    const uniqueChannelName = `profile-realtime-connections-${targetUserId}-${Math.random().toString(36).substring(2, 9)}`;
+    const channel = supabase
+      .channel(uniqueChannelName)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'connections'
+        },
+        (payload) => {
+          console.log("[Profile Debug] Connection change detected in profile:", payload.eventType);
+          const record = payload.new || payload.old;
+          if (payload.eventType === 'DELETE' || (record && (record.friend_id === targetUserId || record.user_id === targetUserId))) {
+            fetchUserData();
+            fetchConnectionStatus();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log("[Profile Debug] Unsubscribing real-time listener for profile.");
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
+
+
   // FIXED:
   // Fetch posts ONLY after userData is available
   useEffect(() => {
@@ -183,21 +217,17 @@ const Profile = () => {
 
       setUserData(data);
 
-      // Fetch dynamic stats from connections table
-      const { count: followersCountVal, error: followersError } = await supabase
+      // Fetch dynamic stats from connections table symmetrically
+      const { count: connCount, error: connError } = await supabase
         .from("connections")
         .select("*", { count: "exact", head: true })
-        .eq("friend_id", targetUserId)
-        .eq("status", "accepted");
+        .eq("status", "accepted")
+        .or(`user_id.eq.${targetUserId},friend_id.eq.${targetUserId}`);
 
-      const { count: followingCountVal, error: followingError } = await supabase
-        .from("connections")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", targetUserId)
-        .eq("status", "accepted");
-
-      if (!followersError) setFollowersCount(followersCountVal || 0);
-      if (!followingError) setFollowingCount(followingCountVal || 0);
+      if (!connError) {
+        setFollowersCount(connCount || 0);
+        setFollowingCount(connCount || 0);
+      }
 
       console.log("User data and connections fetched");
     } catch (err) {

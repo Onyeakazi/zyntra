@@ -10,10 +10,12 @@ import {
 } from 'react-native';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import { StatusBar } from 'expo-status-bar';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
 import { auth } from '../../config/firebase';
 import { useRouter } from 'expo-router';
+import { acceptConnectionInDB } from '../../utils/connectionHelpers';
 import TYPOGRAPHY from '../../constants/typography';
 import COLORS from '../../constants/colors';
 import Back from '../../assets/vectors/back.svg';
@@ -27,8 +29,9 @@ const NotificationScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (showLoader = true) => {
     if (!currentUserId) return;
+    if (showLoader) setLoading(true);
     try {
       const { data, error } = await supabase
         .from("notifications")
@@ -67,9 +70,13 @@ const NotificationScreen = () => {
     }
   };
 
-  useEffect(() => {
-    fetchNotifications();
+  useFocusEffect(
+    useCallback(() => {
+      fetchNotifications(notifications.length === 0);
+    }, [currentUserId])
+  );
 
+  useEffect(() => {
     // Setup realtime subscription for new incoming notifications
     const uniqueChannelName = `notifications-realtime-${currentUserId}-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
@@ -83,7 +90,7 @@ const NotificationScreen = () => {
           filter: `receiver_id=eq.${currentUserId}` 
         },
         () => {
-          fetchNotifications();
+          fetchNotifications(false);
         }
       )
       .subscribe();
@@ -150,14 +157,8 @@ const NotificationScreen = () => {
 
   const handleAcceptConnection = async (item) => {
     try {
-      // 1. Accept pending request
-      const { error: connError } = await supabase
-        .from("connections")
-        .update({ status: "accepted" })
-        .eq("user_id", item.sender_id)
-        .eq("friend_id", currentUserId);
-
-      if (connError) throw connError;
+      // 1. Accept pending request using helper
+      await acceptConnectionInDB(item.sender_id, currentUserId);
 
       // 2. Mark this request notification as read
       await handleMarkAsRead(item.id);

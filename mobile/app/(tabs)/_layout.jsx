@@ -126,23 +126,33 @@ const TabLayout = () => {
         let presenceChannel = null;
         let statusUpdateSub = null;
         let userInboxChannel = null;
+        let activeUserId = null;
 
-        const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+        const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
             console.log("[Badge Debug] onAuthStateChanged fired! User logged in:", !!user);
             if (user) {
+                if (activeUserId === user.uid) {
+                    console.log("[Badge Debug] User already initialized:", user.uid);
+                    return;
+                }
+                activeUserId = user.uid;
+
                 fetchAvatar(user);
                 fetchRequestCount(user);
                 fetchNotificationCount(user);
                 fetchUnreadMessagesCount(user);
 
                 if (channel) {
-                    supabase.removeChannel(channel);
+                    await supabase.removeChannel(channel);
+                    channel = null;
                 }
                 if (presenceChannel) {
-                    supabase.removeChannel(presenceChannel);
+                    await supabase.removeChannel(presenceChannel);
+                    presenceChannel = null;
                 }
                 if (userInboxChannel) {
-                    supabase.removeChannel(userInboxChannel);
+                    await supabase.removeChannel(userInboxChannel);
+                    userInboxChannel = null;
                 }
 
                 // Register global online presence
@@ -292,16 +302,17 @@ const TabLayout = () => {
                         console.log("[Badge Debug] Realtime channel status changed to:", status);
                     });
             } else {
+                activeUserId = null;
                 setAvatar(null);
                 setRequestCount(0);
                 setNotificationCount(0);
                 setUnreadMessagesCount(0);
                 if (channel) {
-                    supabase.removeChannel(channel);
+                    await supabase.removeChannel(channel);
                     channel = null;
                 }
                 if (presenceChannel) {
-                    supabase.removeChannel(presenceChannel);
+                    await supabase.removeChannel(presenceChannel);
                     presenceChannel = null;
                 }
                 if (statusUpdateSub) {
@@ -309,7 +320,7 @@ const TabLayout = () => {
                     statusUpdateSub = null;
                 }
                 if (userInboxChannel) {
-                    supabase.removeChannel(userInboxChannel);
+                    await supabase.removeChannel(userInboxChannel);
                     userInboxChannel = null;
                 }
             }

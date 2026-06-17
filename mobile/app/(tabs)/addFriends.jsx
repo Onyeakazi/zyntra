@@ -23,6 +23,7 @@ import { auth } from '../../config/firebase';
 import { useState, useCallback, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
+import { acceptConnectionInDB } from '../../utils/connectionHelpers';
 
 const { width } = Dimensions.get('window');
 const cardWidth = (width - 40 - 15) / 2;
@@ -68,27 +69,32 @@ const AddFriends = () => {
         });
       }
 
-      const { data: usersData, error: usersError } = await supabase
+      // 1. Fetch user details for incoming requests explicitly by ID
+      let incomingRequestsList = [];
+      if (incomingPendingIds.length > 0) {
+        const { data: incomingUsers, error: incomingErr } = await supabase
+          .from("users")
+          .select("id, full_name, username, avatar_url, bio")
+          .in("id", incomingPendingIds);
+
+        if (!incomingErr && incomingUsers) {
+          incomingRequestsList = incomingUsers;
+        }
+      }
+
+      // 2. Fetch suggestions excluding connections, incoming requests, and sent requests at the DB level
+      const excludeIds = [user.uid, ...activeConnIds, ...incomingPendingIds, ...Object.keys(sentRequestStatus)];
+      
+      const { data: suggestionsData, error: usersError } = await supabase
         .from("users")
         .select("id, full_name, username, avatar_url, bio")
-        .neq("id", user.uid)
+        .not("id", "in", `(${excludeIds.join(",")})`)
         .limit(50);
 
       if (usersError) throw usersError;
 
-      const incomingRequestsList = [];
-      const suggestionsList = [];
-
-      (usersData || []).forEach(u => {
-        if (incomingPendingIds.includes(u.id)) {
-          incomingRequestsList.push(u);
-        } else if (!activeConnIds.includes(u.id)) {
-          suggestionsList.push(u);
-        }
-      });
-
       setIncomingRequests(incomingRequestsList);
-      setUsers(suggestionsList);
+      setUsers(suggestionsData || []);
       setConnectedIds(activeConnIds);
       setMySentRequestIds(sentRequestStatus);
     } catch (err) {
@@ -102,7 +108,7 @@ const AddFriends = () => {
   useFocusEffect(
     useCallback(() => {
       fetchUsers(users.length === 0);
-    }, [])
+    }, [users.length])
   );
 
   useEffect(() => {
@@ -152,19 +158,14 @@ const AddFriends = () => {
     if (!user) return;
 
     try {
-      const { error } = await supabase
-        .from("connections")
-        .update({ status: "accepted" })
-        .eq("user_id", targetUser.id)
-        .eq("friend_id", user.uid);
-
-      if (!error) {
-        setIncomingRequests(prev => prev.filter(r => r.id !== targetUser.id));
-        setConnectedIds(prev => [...prev, targetUser.id]);
-        Alert.alert("Success", `You are now connected with ${targetUser.full_name}!`);
-      }
+      await acceptConnectionInDB(targetUser.id, user.uid);
+      setIncomingRequests(prev => prev.filter(r => r.id !== targetUser.id));
+      setConnectedIds(prev => [...prev, targetUser.id]);
+      setUsers(prev => prev.filter(u => u.id !== targetUser.id));
+      Alert.alert("Success", `You are now connected with ${targetUser.full_name}!`);
     } catch (err) {
       console.error("Error accepting request:", err);
+      Alert.alert("Error", "Could not accept connection request.");
     }
   };
 

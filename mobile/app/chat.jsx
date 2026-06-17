@@ -24,6 +24,7 @@ import COLORS from '../constants/colors';
 import TYPOGRAPHY from '../constants/typography';
 import Svg, { Path, Rect, Circle, Polyline, Line, Polygon } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { acceptConnectionInDB } from '../utils/connectionHelpers';
 
 // Custom inline SVG Icons for premium aesthetics
 const BackIcon = ({ color = "#111", size = 24 }) => (
@@ -48,6 +49,40 @@ const SendIcon = ({ color = "#FFFFFF", size = 18 }) => (
   </Svg>
 );
 
+const SentCheckIcon = ({ color = "#B9BFC9", size = 14, filled = false }) => {
+  if (filled) {
+    return (
+      <View style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: '#111111',
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}>
+        <Svg width={size - 6} height={size - 6} viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round">
+          <Polyline points="20 6 9 17 4 12" />
+        </Svg>
+      </View>
+    );
+  }
+  return (
+    <View style={{
+      width: size,
+      height: size,
+      borderRadius: size / 2,
+      borderWidth: 1.5,
+      borderColor: color,
+      justifyContent: 'center',
+      alignItems: 'center',
+    }}>
+      <Svg width={size - 6} height={size - 6} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round">
+        <Polyline points="20 6 9 17 4 12" />
+      </Svg>
+    </View>
+  );
+};
+
 const InfoIcon = ({ color = "#6B7280", size = 22 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <Circle cx="12" cy="12" r="10" />
@@ -55,6 +90,43 @@ const InfoIcon = ({ color = "#6B7280", size = 22 }) => (
     <Line x1="12" y1="8" x2="12.01" y2="8" />
   </Svg>
 );
+
+const formatMessageTimeLabel = (dateString) => {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return "";
+  
+  const now = new Date();
+  
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  const timeStr = `${hours}:${minutes}`;
+  
+  const dDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dNow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
+  const diffTime = dNow.getTime() - dDate.getTime();
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays === 0) {
+    return `Today ${timeStr}`;
+  } else if (diffDays === 1) {
+    return `Yesterday ${timeStr}`;
+  } else {
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    const month = monthNames[date.getMonth()];
+    const day = date.getDate();
+    
+    if (date.getFullYear() === now.getFullYear()) {
+      return `${month} ${day} ${timeStr}`;
+    } else {
+      return `${month} ${day}, ${date.getFullYear()} ${timeStr}`;
+    }
+  }
+};
 
 const ChatRoom = () => {
   const router = useRouter();
@@ -128,20 +200,26 @@ const ChatRoom = () => {
       .on(
         'postgres_changes',
         { 
-          event: 'INSERT', 
+          event: '*', 
           schema: 'public', 
           table: 'messages', 
           filter: `conversation_id=eq.${conversationId}` 
         },
         (payload) => {
-          setMessages((prev) => {
-            if (prev.some(m => m.id === payload.new.id)) return prev;
-            return [payload.new, ...prev]; // Inverted FlatList: prepend new messages
-          });
-          
-          // Mark as read if the recipient of the message is the current user
-          if (payload.new.sender_id !== currentUserId) {
-            markMessageAsRead(payload.new.id);
+          if (payload.eventType === 'INSERT') {
+            setMessages((prev) => {
+              if (prev.some(m => m.id === payload.new.id)) return prev;
+              return [payload.new, ...prev]; // Inverted FlatList: prepend new messages
+            });
+            
+            // Mark as read if the recipient of the message is the current user
+            if (payload.new.sender_id !== currentUserId) {
+              markMessageAsRead(payload.new.id);
+            }
+          } else if (payload.eventType === 'UPDATE') {
+            setMessages((prev) => {
+              return prev.map(m => m.id === payload.new.id ? payload.new : m);
+            });
           }
         }
       )
@@ -202,8 +280,31 @@ const ChatRoom = () => {
           .single();
         
         if (convRow) {
-          setConversation(convRow);
-          activeRecipientId = convRow.user_1 === currentUserId ? convRow.user_2 : convRow.user_1;
+          const partnerId = convRow.user_1 === currentUserId ? convRow.user_2 : convRow.user_1;
+          activeRecipientId = partnerId;
+
+          // Check if users are connected
+          const { data: connData } = await supabase
+            .from("connections")
+            .select("status")
+            .or(`and(user_id.eq.${currentUserId},friend_id.eq.${partnerId}),and(user_id.eq.${partnerId},friend_id.eq.${currentUserId})`)
+            .eq("status", "accepted")
+            .maybeSingle();
+
+          const isConnected = !!connData;
+
+          if (isConnected && convRow.status === 'pending') {
+            console.log("[Chat Debug] Users are connected, updating conversation to accepted");
+            const { data: updatedConv } = await supabase
+              .from("conversations")
+              .update({ status: 'accepted' })
+              .eq("id", activeConvId)
+              .select()
+              .single();
+            setConversation(updatedConv || { ...convRow, status: 'accepted' });
+          } else {
+            setConversation(convRow);
+          }
         }
       }
 
@@ -239,6 +340,21 @@ const ChatRoom = () => {
             .from("messages")
             .update({ is_read: true })
             .in("id", unreadIds);
+
+          // Broadcast to the other user's inbox so their chat list updates real-time
+          if (activeRecipientId) {
+            try {
+              const userInboxChannel = supabase.channel(`user-inbox-${activeRecipientId}`);
+              await userInboxChannel.send({
+                type: 'broadcast',
+                event: 'new_message',
+                payload: { conversation_id: activeConvId, type: 'messages_read' }
+              });
+              console.log("[Broadcast Debug] Broadcasted read state to inbox:", activeRecipientId);
+            } catch (err) {
+              console.error("[Broadcast Debug] Error broadcasting read state:", err.message);
+            }
+          }
         }
       }
     } catch (err) {
@@ -254,6 +370,21 @@ const ChatRoom = () => {
         .from("messages")
         .update({ is_read: true })
         .eq("id", msgId);
+
+      // Broadcast to the recipient's inbox so their chat list updates real-time
+      if (recipient) {
+        try {
+          const userInboxChannel = supabase.channel(`user-inbox-${recipient.id}`);
+          await userInboxChannel.send({
+            type: 'broadcast',
+            event: 'new_message',
+            payload: { conversation_id: conversationId, type: 'messages_read' }
+          });
+          console.log("[Broadcast Debug] Broadcasted markMessageAsRead to recipient inbox:", recipient.id);
+        } catch (err) {
+          console.error("[Broadcast Debug] Error broadcasting markMessageAsRead state:", err.message);
+        }
+      }
     } catch (err) {
       console.error("Error marking message as read:", err.message);
     }
@@ -391,6 +522,37 @@ const ChatRoom = () => {
           return [insertedMsg, ...prev]; // Prepend new message since flatlist is inverted
         });
 
+        // 4. Update parent conversation info in database and await it first (prevents race condition)
+        try {
+          // Check if users are connected
+          const { data: connData } = await supabase
+            .from("connections")
+            .select("status")
+            .or(`and(user_id.eq.${currentUserId},friend_id.eq.${recipient.id}),and(user_id.eq.${recipient.id},friend_id.eq.${currentUserId})`)
+            .eq("status", "accepted")
+            .maybeSingle();
+
+          const isConnected = !!connData;
+
+          let nextStatus = 'pending';
+          if (isConnected || (conversation && conversation.status === 'accepted')) {
+            nextStatus = 'accepted';
+          }
+
+          await supabase
+            .from("conversations")
+            .update({
+              status: nextStatus,
+              last_message: messageContent || "Sent an image",
+              last_sender_id: currentUserId,
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", activeConvId);
+        } catch (convUpdateErr) {
+          console.error("Error updating parent conversation metadata:", convUpdateErr.message);
+        }
+
+        // 5. Send broadcasts to notify active screens
         try {
           // Broadcast the message to the active chat room channel in real-time
           const chatRoomChannel = supabase.channel(`chat-room-${activeConvId}`);
@@ -413,16 +575,6 @@ const ChatRoom = () => {
         }
       }
 
-      // 4. Update parent conversation info
-      await supabase
-        .from("conversations")
-        .update({
-          last_message: messageContent || "Sent an image",
-          last_sender_id: currentUserId,
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", activeConvId);
-
       setInputText("");
       setSelectedImage(null);
     } catch (err) {
@@ -435,14 +587,9 @@ const ChatRoom = () => {
   };
 
   const handleAcceptRequest = async () => {
-    if (!conversationId) return;
+    if (!conversationId || !recipient) return;
     try {
-      const { error } = await supabase
-        .from("conversations")
-        .update({ status: 'accepted' })
-        .eq("id", conversationId);
-      
-      if (error) throw error;
+      await acceptConnectionInDB(currentUserId, recipient.id);
       setConversation(prev => ({ ...prev, status: 'accepted' }));
     } catch (err) {
       console.error("Error accepting request:", err.message);
@@ -479,33 +626,111 @@ const ChatRoom = () => {
     );
   };
 
-  const renderMessageItem = ({ item }) => {
+  const renderMessageItem = ({ item, index }) => {
     const isMyMessage = item.sender_id === currentUserId;
     
-    return (
-      <View style={[styles.messageRow, isMyMessage ? styles.myMessageRow : styles.theirMessageRow]}>
-        {!isMyMessage && recipient && (
-          <Image
-            source={
-              recipient.avatar_url && recipient.avatar_url.trim() !== ""
-                ? { uri: recipient.avatar_url }
-                : require("../assets/images/default.png")
-            }
-            style={styles.bubbleAvatar}
-          />
-        )}
-        <View style={styles.bubbleContainer}>
-          {item.image_url && (
-            <Image source={{ uri: item.image_url }} style={styles.bubbleImage} />
-          )}
-          {item.content && item.content !== "Sent an image" && (
-            <View style={[styles.bubble, isMyMessage ? styles.myBubble : styles.theirBubble]}>
-              <Text style={[styles.messageText, isMyMessage ? styles.myMessageText : styles.theirMessageText]}>
-                {item.content}
-              </Text>
+    // Determine if we should show a time/date separator above this message.
+    // In our inverted list, index 0 is at the bottom (newest message),
+    // and index messages.length - 1 is at the top (oldest message).
+    let showTimestamp = false;
+    if (index === messages.length - 1) {
+      showTimestamp = true;
+    } else {
+      const prevMessage = messages[index + 1]; // In inverted index, index + 1 is older in time
+      if (prevMessage) {
+        const currentDate = new Date(item.created_at);
+        const prevDate = new Date(prevMessage.created_at);
+        const diffMs = Math.abs(currentDate - prevDate);
+        const diffMins = diffMs / (1000 * 60);
+        
+        // Show timestamp if calendar day changed, or if more than 15 minutes have passed
+        if (currentDate.toDateString() !== prevDate.toDateString() || diffMins > 15) {
+          showTimestamp = true;
+        }
+      }
+    }
+
+    if (item.sender_id === 'system') {
+      return (
+        <View style={styles.systemMessageContainer}>
+          {showTimestamp && (
+            <View style={styles.timestampContainer}>
+              <Text style={styles.timestampText}>{formatMessageTimeLabel(item.created_at)}</Text>
             </View>
           )}
+          <View style={styles.systemMessageBubble}>
+            <Text style={styles.systemMessageText}>{item.content}</Text>
+          </View>
         </View>
+      );
+    }
+
+    // Find the index of the latest read message sent by us.
+    // In our inverted list, index 0 is newest. So the first message (closest to index 0)
+    // that was sent by us and is read is the latest read message.
+    const latestReadIndex = messages.findIndex(
+      m => m.sender_id === currentUserId && m.is_read === true
+    );
+
+    const isLatestReadByRecipient = isMyMessage && index === latestReadIndex;
+    const isNewestUnreadByRecipient = isMyMessage && index === 0 && !item.is_read;
+    
+    return (
+      <View style={styles.messageContainer}>
+        {showTimestamp && (
+          <View style={styles.timestampContainer}>
+            <Text style={styles.timestampText}>{formatMessageTimeLabel(item.created_at)}</Text>
+          </View>
+        )}
+        <View style={[styles.messageRow, isMyMessage ? styles.myMessageRow : styles.theirMessageRow]}>
+          {!isMyMessage && recipient && (
+            <Pressable
+              onPress={() => router.push({
+                pathname: "/(tabs)/profile",
+                params: { userId: recipient.id }
+              })}
+            >
+              <Image
+                source={
+                  recipient.avatar_url && recipient.avatar_url.trim() !== ""
+                    ? { uri: recipient.avatar_url }
+                    : require("../assets/images/default.png")
+                }
+                style={styles.bubbleAvatar}
+              />
+            </Pressable>
+          )}
+          <View style={styles.bubbleContainer}>
+            {item.image_url && (
+              <Image source={{ uri: item.image_url }} style={styles.bubbleImage} />
+            )}
+            {item.content && item.content !== "Sent an image" && (
+              <View style={[styles.bubble, isMyMessage ? styles.myBubble : styles.theirBubble]}>
+                <Text style={[styles.messageText, isMyMessage ? styles.myMessageText : styles.theirMessageText]}>
+                  {item.content}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+        {(isLatestReadByRecipient || isNewestUnreadByRecipient) && (
+          <View style={styles.readStatusContainer}>
+            {isLatestReadByRecipient ? (
+              recipient && (
+                <Image
+                  source={
+                    recipient.avatar_url && recipient.avatar_url.trim() !== ""
+                      ? { uri: recipient.avatar_url }
+                      : require("../assets/images/default.png")
+                  }
+                  style={styles.tinyReadAvatar}
+                />
+              )
+            ) : (
+              <SentCheckIcon size={13} filled={recipient && onlineUserIds.includes(recipient.id)} />
+            )}
+          </View>
+        )}
       </View>
     );
   };
@@ -529,7 +754,13 @@ const ChatRoom = () => {
           {recipient && (() => {
             const isOnline = onlineUserIds.includes(recipient.id);
             return (
-              <View style={styles.recipientInfo}>
+              <Pressable
+                onPress={() => router.push({
+                  pathname: "/(tabs)/profile",
+                  params: { userId: recipient.id }
+                })}
+                style={styles.recipientInfo}
+              >
                 <View style={styles.avatarContainer}>
                   <Image
                     source={
@@ -551,7 +782,7 @@ const ChatRoom = () => {
                     {isOnline ? "Active now" : `@${recipient.username || "username"}`}
                   </Text>
                 </View>
-              </View>
+              </Pressable>
             );
           })()}
           
@@ -741,6 +972,38 @@ const styles = StyleSheet.create({
   messagesList: {
     paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+
+  messageContainer: {
+    width: '100%',
+  },
+
+  readStatusContainer: {
+    alignSelf: 'flex-end',
+    marginRight: 4,
+    marginTop: 2,
+    marginBottom: 4,
+  },
+
+  tinyReadAvatar: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 0.5,
+    borderColor: '#E5E7EB',
+  },
+
+  timestampContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 18,
+    marginBottom: 8,
+  },
+
+  timestampText: {
+    fontSize: 11,
+    fontFamily: TYPOGRAPHY.medium,
+    color: '#9CA3AF',
   },
 
   messageRow: {
@@ -958,5 +1221,29 @@ const styles = StyleSheet.create({
     color: '#4B5563',
     fontSize: 14,
     fontFamily: TYPOGRAPHY.semiBold,
+  },
+
+  systemMessageContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 12,
+    paddingHorizontal: 24,
+    width: '100%',
+  },
+
+  systemMessageBubble: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+
+  systemMessageText: {
+    fontSize: 13,
+    fontFamily: TYPOGRAPHY.medium,
+    color: '#6B7280',
+    textAlign: 'center',
   },
 });

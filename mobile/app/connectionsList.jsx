@@ -18,8 +18,10 @@ import Search from "../assets/vectors/search.svg";
 import COLORS from '../constants/colors';
 import { supabase } from '../lib/supabase';
 import { auth } from '../config/firebase';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { router, useLocalSearchParams } from 'expo-router';
+
 
 const ConnectionsList = () => {
   const { userId, initialTab } = useLocalSearchParams();
@@ -79,12 +81,14 @@ const ConnectionsList = () => {
         }
       }
 
-      // Map connection IDs to user details
-      const followersList = followerIds
+      // Map connection IDs to user details (mutual connections are both followers and following)
+      const allFriendIds = [...new Set([...followerIds, ...followingIds])];
+
+      const followersList = allFriendIds
         .map(id => usersMap[id])
         .filter(Boolean); // Filters out any users that might not exist in users table
 
-      const followingList = followingIds
+      const followingList = allFriendIds
         .map(id => usersMap[id])
         .filter(Boolean);
 
@@ -117,9 +121,41 @@ const ConnectionsList = () => {
     }
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      fetchData(followers.length === 0 && following.length === 0);
+    }, [targetUserId])
+  );
+
   useEffect(() => {
-    fetchData();
+    if (!targetUserId) return;
+    console.log("[ConnectionsList Debug] Registering real-time listener...");
+    const uniqueChannelName = `connections-list-realtime-${targetUserId}-${Math.random().toString(36).substring(2, 9)}`;
+    const channel = supabase
+      .channel(uniqueChannelName)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'connections'
+        },
+        (payload) => {
+          console.log("[ConnectionsList Debug] Connections change detected:", payload.eventType);
+          const record = payload.new || payload.old;
+          if (payload.eventType === 'DELETE' || (record && (record.friend_id === targetUserId || record.user_id === targetUserId))) {
+            fetchData(false);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log("[ConnectionsList Debug] Unsubscribing real-time listener.");
+      supabase.removeChannel(channel);
+    };
   }, [targetUserId]);
+
 
   const handleRefresh = () => {
     setRefreshing(true);
