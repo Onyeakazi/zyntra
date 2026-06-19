@@ -17,6 +17,7 @@ import { auth } from '../config/firebase';
 import ScreenWrapper from '../components/ScreenWrapper';
 import Feed from '../components/Feed';
 import { renderTextWithMentions, handleMentionPress } from '../utils/mentions';
+import { formatPostTime } from '../utils/timeFormat';
 import Back from '../assets/vectors/back.svg';
 import TYPOGRAPHY from '../constants/typography';
 import COLORS from '../constants/colors';
@@ -176,7 +177,7 @@ export default function Comments() {
               ? { uri: data.users.avatar_url }
               : require("../assets/images/default.png")
           },
-          time: new Date(data.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) + " at " + new Date(data.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          time: formatPostTime(data.created_at)
         };
 
         if (data.repost_id) {
@@ -211,7 +212,7 @@ export default function Comments() {
                   ? { uri: origData.users.avatar_url }
                   : require("../assets/images/default.png")
               },
-              time: new Date(origData.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) + " at " + new Date(origData.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              time: formatPostTime(origData.created_at)
             };
           }
         }
@@ -451,9 +452,7 @@ export default function Comments() {
   };
 
   const formatCommentTime = (isoString) => {
-    if (!isoString) return "";
-    const date = new Date(isoString);
-    return date.toLocaleDateString([], { month: 'short', day: 'numeric' }) + " at " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return formatPostTime(isoString);
   };
 
   const renderReplyItem = (reply, parent, isLast) => {

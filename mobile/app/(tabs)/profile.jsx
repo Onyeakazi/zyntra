@@ -29,6 +29,7 @@ import { auth } from "../../config/firebase";
 import { signOut } from "firebase/auth";
 import { supabase } from "../../lib/supabase";
 import { acceptConnectionInDB } from "../../utils/connectionHelpers";
+import { formatPostTime } from "../../utils/timeFormat";
 
 const Profile = () => {
   const { userId } = useLocalSearchParams();
@@ -285,7 +286,7 @@ const Profile = () => {
               : require("../../assets/images/default.png"),
         },
         content: post.content,
-        time: new Date(post.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        time: formatPostTime(post.created_at),
         image: post.media_url ? { uri: post.media_url } : null,
         repost_id: post.repost_id,
         original_post: post.original_post ? {
@@ -295,7 +296,7 @@ const Profile = () => {
           image: post.original_post.media_url ? { uri: post.original_post.media_url } : null,
           media_type: post.original_post.media_type,
           created_at: post.original_post.created_at,
-          time: new Date(post.original_post.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          time: formatPostTime(post.original_post.created_at),
           user: {
             name: post.original_post.user?.full_name || "User",
             username: post.original_post.user?.username || "username",

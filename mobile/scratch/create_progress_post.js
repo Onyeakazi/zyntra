@@ -21,19 +21,17 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const userId = "yMW6kCQCIGVu5oBJERVuqYgdRM02"; // Chiemena Godswill
 
-const content = `Day 13 of building Zyntra 🚀
+const content = `Day 14 of building Zyntra 🚀
 
-Shipped the next core pillars of our social infrastructure today:
+Just shipped the reposting and quote post ecosystem today! Here is what we did:
 
-• Real-time Notification Engine: Automatically triggers alerts for reactions, comments, replies, mentions, and connection requests.
-• Bottom tab notification badge counters syncing in real-time.
-• Full Notification Hub with inline Connection Request actions (instant Accept/Decline) and Mark-as-read/Mark-all-as-read options.
-• Clickable User Mentions: Highlighted in blue and bold inside posts, comments, and replies, routing directly to the user's profile.
-• Premium Autocomplete Mention Suggestions: Floating user matching dropdown triggered when typing '@' in comments or post creators.
-• Reddit-style Comment Thread Lines: Vertical connector line segments and horizontal branch lines linking nested replies to parent comment avatars.
-• Home Header Declutter: Cleaned up duplicate icons and built a toggleable inline search feed filter.
+• Simple Reposts & Quote Posts: Users can now share others' posts directly to their feed (simple repost with a "shared a post" banner) or add custom commentary with a nested card layout showing the original post.
+• Facebook-Style Share Sheet: Custom slide-up bottom sheet with inline SVG icons inside light-gray circle backdrops. It offers actions to Repost Now, Quote Post, Copy Link, and Share Outside.
+• Decoupled Click Targets: Structured cards with sibling Pressables rather than nested Pressables. Tapping the original author's name navigates to their profile, while tapping the original post body takes you to the comments details view.
+• Automated Repost Notifications: Created a Supabase trigger to notify the original author in real-time when someone reposts their content.
+• Clean Feed Loading: Synced all original post and author ID parameters correctly on index and profile feeds.
 
-Powering it all with React Native (Expo) & Supabase Postgres triggers + real-time subscription! ⚡
+Keeping the momentum going! 💪
 
 #buildinpublic #reactnative #supabase #indiedev #mobiledev`;
 

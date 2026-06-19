@@ -20,16 +20,22 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 async function run() {
-  console.log("Checking columns of messages and conversations...");
+  const userId = 'yMW6kCQCIGVu5oBJERVuqYgdRM02'; // Let's test with this user ID
+  console.log("Testing unread messages query for user:", userId);
   
-  const { data: cols, error } = await supabase.rpc('get_table_columns_info'); // or direct query
-  
-  // Let's do a direct SQL-like query if possible, or just select a single row to see properties
-  const { data: msgRow, error: msgErr } = await supabase.from('messages').select('*').limit(1);
-  console.log("Sample Message:", msgRow, msgErr);
+  const { data, error } = await supabase
+    .from("messages")
+    .select("id, conversations!inner(user_1, user_2)")
+    .neq("sender_id", userId)
+    .eq("is_read", false)
+    .or(`user_1.eq.${userId},user_2.eq.${userId}`, { foreignTable: 'conversations' });
 
-  const { data: convRow, error: convErr } = await supabase.from('conversations').select('*').limit(1);
-  console.log("Sample Conversation:", convRow, convErr);
+  if (error) {
+    console.error("Query Error:", error);
+  } else {
+    console.log("Query Succeeded! Rows found:", data.length);
+    console.log("Rows:", JSON.stringify(data, null, 2));
+  }
 }
 
 run();

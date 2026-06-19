@@ -20,16 +20,31 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 async function run() {
-  console.log("Checking columns of messages and conversations...");
+  console.log("Checking for messaging/chat related tables...");
   
-  const { data: cols, error } = await supabase.rpc('get_table_columns_info'); // or direct query
+  const commonTables = [
+    'messages', 
+    'conversations', 
+    'chat_rooms', 
+    'chats', 
+    'message_requests', 
+    'connection_requests',
+    'connections',
+    'users'
+  ];
   
-  // Let's do a direct SQL-like query if possible, or just select a single row to see properties
-  const { data: msgRow, error: msgErr } = await supabase.from('messages').select('*').limit(1);
-  console.log("Sample Message:", msgRow, msgErr);
-
-  const { data: convRow, error: convErr } = await supabase.from('conversations').select('*').limit(1);
-  console.log("Sample Conversation:", convRow, convErr);
+  for (const table of commonTables) {
+    const { error } = await supabase.from(table).select("*").limit(1);
+    if (error) {
+      if (error.code === '42P01') {
+        console.log(`❌ Table '${table}' does not exist.`);
+      } else {
+        console.log(`❓ Table '${table}' exists but returned error: ${error.message} (Code: ${error.code})`);
+      }
+    } else {
+      console.log(`✅ Table '${table}' exists!`);
+    }
+  }
 }
 
 run();

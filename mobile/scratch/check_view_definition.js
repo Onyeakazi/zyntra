@@ -20,16 +20,18 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 async function run() {
-  console.log("Checking columns of messages and conversations...");
-  
-  const { data: cols, error } = await supabase.rpc('get_table_columns_info'); // or direct query
-  
-  // Let's do a direct SQL-like query if possible, or just select a single row to see properties
-  const { data: msgRow, error: msgErr } = await supabase.from('messages').select('*').limit(1);
-  console.log("Sample Message:", msgRow, msgErr);
+  console.log("Fetching view definition for 'home_feed'...");
+  const { data, error } = await supabase.rpc('get_view_info', { view_name: 'home_feed' });
+  if (error) {
+    // If get_view_info doesn't work, let's try reading the definition from pg_views via RPC if possible
+    // Wait, let's see if we have get_view_definition or any other custom function
+    console.error("RPC Error:", error);
+  } else {
+    console.log("RPC get_view_info returned:", data);
+  }
 
-  const { data: convRow, error: convErr } = await supabase.from('conversations').select('*').limit(1);
-  console.log("Sample Conversation:", convRow, convErr);
+  // Let's check if we can query pg_catalog views via RPC if there is a generic sql executor RPC?
+  // Let's search if there's any RPC in the schema.
 }
 
 run();

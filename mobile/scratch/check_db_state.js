@@ -20,16 +20,19 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 async function run() {
-  console.log("Checking columns of messages and conversations...");
-  
-  const { data: cols, error } = await supabase.rpc('get_table_columns_info'); // or direct query
-  
-  // Let's do a direct SQL-like query if possible, or just select a single row to see properties
-  const { data: msgRow, error: msgErr } = await supabase.from('messages').select('*').limit(1);
-  console.log("Sample Message:", msgRow, msgErr);
+  console.log("=== USERS STATS IN DB ===");
+  const { data: users, error: uErr } = await supabase
+    .from("users")
+    .select("id, full_name, followers_count, following_count");
+  if (uErr) console.error(uErr);
+  else console.log(users);
 
-  const { data: convRow, error: convErr } = await supabase.from('conversations').select('*').limit(1);
-  console.log("Sample Conversation:", convRow, convErr);
+  console.log("\n=== CONNECTIONS IN DB ===");
+  const { data: conns, error: cErr } = await supabase
+    .from("connections")
+    .select("*");
+  if (cErr) console.error(cErr);
+  else console.log(conns);
 }
 
 run();

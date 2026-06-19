@@ -20,16 +20,20 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 async function run() {
-  console.log("Checking columns of messages and conversations...");
+  console.log("Querying all posts...");
+  const { data: posts, error: pErr } = await supabase
+    .from("posts")
+    .select("id, user_id, content, created_at");
   
-  const { data: cols, error } = await supabase.rpc('get_table_columns_info'); // or direct query
-  
-  // Let's do a direct SQL-like query if possible, or just select a single row to see properties
-  const { data: msgRow, error: msgErr } = await supabase.from('messages').select('*').limit(1);
-  console.log("Sample Message:", msgRow, msgErr);
-
-  const { data: convRow, error: convErr } = await supabase.from('conversations').select('*').limit(1);
-  console.log("Sample Conversation:", convRow, convErr);
+  if (pErr) {
+    console.error(pErr);
+  } else {
+    console.log(`Total posts: ${posts.length}`);
+    for (const post of posts) {
+      const { data: user } = await supabase.from("users").select("full_name").eq("id", post.user_id).single();
+      console.log(`- Post ID: ${post.id}, Author: ${user?.full_name} (${post.user_id}), Content: "${(post.content || '').substring(0, 40)}..."`);
+    }
+  }
 }
 
 run();
