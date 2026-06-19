@@ -1,11 +1,11 @@
-import { Image, StyleSheet, Text, TouchableOpacity, View, ScrollView, Dimensions, Pressable, Alert, Share as RNShare, Modal } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View, ScrollView, Dimensions, Pressable, Alert, Share as RNShare, Modal, PanResponder, Animated } from 'react-native';
 import Like from "../assets/vectors/like.svg";
 import Message from "../assets/vectors/message.svg";
 import Share from "../assets/vectors/share.svg";
 import Saved from "../assets/vectors/save.svg";
 import LinkIcon from "../assets/vectors/link.svg";
 import Svg, { Path, Polyline, Line } from 'react-native-svg';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { router } from 'expo-router';
 import { auth } from '../config/firebase';
 import { supabase } from '../lib/supabase';
@@ -73,6 +73,184 @@ const ShareIconInline = ({ color = "#1F2937", size = 20 }) => (
   </Svg>
 );
 
+const ZoomableImage = ({ source, style }) => {
+  const scale = useRef(new Animated.Value(1)).current;
+  const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  
+  const lastScale = useRef(1);
+  const lastPan = useRef({ x: 0, y: 0 });
+  const initialDist = useRef(0);
+  const pinchStartScale = useRef(1);
+  const isPinching = useRef(false);
+  const lastTap = useRef(0);
+
+  useEffect(() => {
+    const scaleId = scale.addListener(({ value }) => {
+      lastScale.current = value;
+    });
+    const panId = pan.addListener(({ x, y }) => {
+      lastPan.current = { x, y };
+    });
+    return () => {
+      scale.removeListener(scaleId);
+      pan.removeListener(panId);
+    };
+  }, [scale, pan]);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: (evt, gestureState) => {
+        const now = Date.now();
+        const DOUBLE_TAP_DELAY = 300;
+
+        if (evt.nativeEvent.touches.length === 2) {
+          const t1 = evt.nativeEvent.touches[0];
+          const t2 = evt.nativeEvent.touches[1];
+          const dx = t1.pageX - t2.pageX;
+          const dy = t1.pageY - t2.pageY;
+          initialDist.current = Math.sqrt(dx * dx + dy * dy);
+          pinchStartScale.current = lastScale.current;
+          isPinching.current = true;
+        } else {
+          isPinching.current = false;
+          if (now - lastTap.current < DOUBLE_TAP_DELAY) {
+            // Double Tap - zoom toggle
+            if (lastScale.current > 1) {
+              // Zoom out to normal
+              Animated.parallel([
+                Animated.spring(scale, { toValue: 1, useNativeDriver: false }),
+                Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false })
+              ]).start(() => {
+                lastScale.current = 1;
+                lastPan.current = { x: 0, y: 0 };
+                pan.setOffset({ x: 0, y: 0 });
+                pan.setValue({ x: 0, y: 0 });
+              });
+            } else {
+              // Zoom in to 2.5x
+              Animated.parallel([
+                Animated.spring(scale, { toValue: 2.5, useNativeDriver: false }),
+                Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false })
+              ]).start(() => {
+                lastScale.current = 2.5;
+                lastPan.current = { x: 0, y: 0 };
+                pan.setOffset({ x: 0, y: 0 });
+                pan.setValue({ x: 0, y: 0 });
+              });
+            }
+          } else {
+            pan.setOffset({ x: lastPan.current.x, y: lastPan.current.y });
+            pan.setValue({ x: 0, y: 0 });
+          }
+          lastTap.current = now;
+        }
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        if (evt.nativeEvent.touches.length === 2) {
+          const t1 = evt.nativeEvent.touches[0];
+          const t2 = evt.nativeEvent.touches[1];
+          const dx = t1.pageX - t2.pageX;
+          const dy = t1.pageY - t2.pageY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          if (!isPinching.current || initialDist.current === 0) {
+            initialDist.current = dist;
+            pinchStartScale.current = lastScale.current;
+            isPinching.current = true;
+          } else {
+            let nextScale = (dist / initialDist.current) * pinchStartScale.current;
+            if (nextScale < 1) nextScale = 1;
+            if (nextScale > 4) nextScale = 4;
+            scale.setValue(nextScale);
+          }
+        } else if (evt.nativeEvent.touches.length === 1) {
+          if (isPinching.current) {
+            isPinching.current = false;
+            initialDist.current = 0;
+            pan.flattenOffset();
+            pan.setOffset({ x: lastPan.current.x, y: lastPan.current.y });
+            pan.setValue({ x: 0, y: 0 });
+          } else if (lastScale.current > 1) {
+            pan.setValue({ x: gestureState.dx, y: gestureState.dy });
+          }
+        }
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        pan.flattenOffset();
+        isPinching.current = false;
+        initialDist.current = 0;
+
+        if (lastScale.current <= 1.05) {
+          Animated.parallel([
+            Animated.spring(scale, { toValue: 1, useNativeDriver: false }),
+            Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false })
+          ]).start(() => {
+            lastScale.current = 1;
+            lastPan.current = { x: 0, y: 0 };
+            pan.setOffset({ x: 0, y: 0 });
+            pan.setValue({ x: 0, y: 0 });
+          });
+        } else {
+          const maxDragX = (lastScale.current - 1) * (Dimensions.get("window").width / 2);
+          const maxDragY = (lastScale.current - 1) * (320 / 2);
+          let newX = lastPan.current.x;
+          let newY = lastPan.current.y;
+
+          if (Math.abs(newX) > maxDragX) {
+            newX = newX > 0 ? maxDragX : -maxDragX;
+          }
+          if (Math.abs(newY) > maxDragY) {
+            newY = newY > 0 ? maxDragY : -maxDragY;
+          }
+
+          Animated.parallel([
+            Animated.spring(pan, { toValue: { x: newX, y: newY }, useNativeDriver: false })
+          ]).start(() => {
+            lastPan.current = { x: newX, y: newY };
+          });
+        }
+      },
+      onPanResponderTerminate: () => {
+        pan.flattenOffset();
+        isPinching.current = false;
+        initialDist.current = 0;
+        
+        Animated.parallel([
+          Animated.spring(scale, { toValue: 1, useNativeDriver: false }),
+          Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false })
+        ]).start(() => {
+          lastScale.current = 1;
+          lastPan.current = { x: 0, y: 0 };
+          pan.setOffset({ x: 0, y: 0 });
+          pan.setValue({ x: 0, y: 0 });
+        });
+      }
+    })
+  ).current;
+
+  return (
+    <Animated.View
+      collapsable={false}
+      {...panResponder.panHandlers}
+      style={[
+        style,
+        {
+          transform: [
+            { scale: scale },
+            { translateX: pan.x },
+            { translateY: pan.y }
+          ]
+        }
+      ]}
+    >
+      <Image source={source} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
+    </Animated.View>
+  );
+};
+
 const Feed = ({ item }) => {
   const targetPostId = item.id;
 
@@ -81,6 +259,11 @@ const Feed = ({ item }) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const [showOptions, setShowOptions] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
+
+  // Photo viewer states
+  const [isPhotoViewerVisible, setIsPhotoViewerVisible] = useState(false);
+  const [photoViewerIndex, setPhotoViewerIndex] = useState(0);
+  const [showPhotoViewerOptions, setShowPhotoViewerOptions] = useState(false);
 
   // Reaction and interaction states
   const [myReaction, setMyReaction] = useState(null);
@@ -672,11 +855,16 @@ const Feed = ({ item }) => {
 
             if (images.length === 1) {
               return (
-                <Image
-                  source={images[0]}
-                  style={[styles.feedImage, { width: cardWidth }]}
-                  resizeMode="cover"
-                />
+                <Pressable onPress={() => {
+                  setPhotoViewerIndex(0);
+                  setIsPhotoViewerVisible(true);
+                }}>
+                  <Image
+                    source={images[0]}
+                    style={[styles.feedImage, { width: cardWidth }]}
+                    resizeMode="cover"
+                  />
+                </Pressable>
               );
             }
 
@@ -691,12 +879,19 @@ const Feed = ({ item }) => {
                   scrollEventThrottle={16}
                 >
                   {images.map((img, index) => (
-                    <Image
+                    <Pressable
                       key={index}
-                      source={img}
-                      style={[styles.carouselImage, { width: cardWidth, height: 200 }]}
-                      resizeMode="cover"
-                    />
+                      onPress={() => {
+                        setPhotoViewerIndex(index);
+                        setIsPhotoViewerVisible(true);
+                      }}
+                    >
+                      <Image
+                        source={img}
+                        style={[styles.carouselImage, { width: cardWidth, height: 200 }]}
+                        resizeMode="cover"
+                      />
+                    </Pressable>
                   ))}
                 </ScrollView>
                 <View style={styles.dotsContainer}>
@@ -986,6 +1181,268 @@ const Feed = ({ item }) => {
             </TouchableOpacity>
           </Pressable>
         </Pressable>
+      </Modal>
+
+      {/* Immersive Zyntra Floating Card Photo Viewer */}
+      <Modal
+        visible={isPhotoViewerVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setIsPhotoViewerVisible(false)}
+      >
+        <View style={styles.viewerBackdrop}>
+          {/* Backdrop Close Trigger Sibling */}
+          <Pressable
+            style={StyleSheet.absoluteFillObject}
+            onPress={() => setIsPhotoViewerVisible(false)}
+          />
+
+          {/* Centered Modal Card */}
+          <View style={styles.viewerCard}>
+            {/* 1. Header Row (Light theme) */}
+            <View style={styles.viewerCardHeader}>
+              <Pressable
+                onPress={() => {
+                  setIsPhotoViewerVisible(false);
+                  navigateToProfile();
+                }}
+                style={styles.viewerUserBtn}
+              >
+                <Image
+                  source={item.user.profilePic}
+                  style={styles.viewerAvatar}
+                />
+                <View style={styles.viewerUserText}>
+                  <Text style={styles.viewerName}>{item.user.name}</Text>
+                  <Text style={styles.viewerTime}>{item.time}</Text>
+                </View>
+              </Pressable>
+
+              <View style={styles.viewerHeaderActions}>
+                <TouchableOpacity
+                  onPress={() => setShowPhotoViewerOptions(!showPhotoViewerOptions)}
+                  style={styles.viewerHeaderActionBtn}
+                >
+                  <Text style={styles.viewerHeaderActionText}>•••</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setIsPhotoViewerVisible(false)}
+                  style={[styles.viewerHeaderActionBtn, { backgroundColor: '#E5E7EB' }]}
+                >
+                  <Text style={[styles.viewerHeaderActionText, { color: '#4B5563', fontSize: 13 }]}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Options Dropdown Overlay inside Card */}
+            {showPhotoViewerOptions && (
+              <View style={styles.viewerCardOptionsDropdown}>
+                {isAuthor && (
+                  <>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setShowPhotoViewerOptions(false);
+                        setIsPhotoViewerVisible(false);
+                        handleEditPost();
+                      }}
+                      style={styles.optionItem}
+                    >
+                      <EditIcon size={16} color="#333" />
+                      <Text style={styles.optionText}>Edit Post</Text>
+                    </TouchableOpacity>
+                    <View style={styles.optionDivider} />
+                  </>
+                )}
+
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowPhotoViewerOptions(false);
+                    handleCopyLink();
+                  }}
+                  style={styles.optionItem}
+                >
+                  <LinkIconInline width={16} height={16} color="#333" />
+                  <Text style={styles.optionText}>Copy Link</Text>
+                </TouchableOpacity>
+
+                <View style={styles.optionDivider} />
+
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowPhotoViewerOptions(false);
+                    handleSharePost();
+                  }}
+                  style={styles.optionItem}
+                >
+                  <Share width={16} height={16} color="#333" />
+                  <Text style={styles.optionText}>Share Post</Text>
+                </TouchableOpacity>
+
+                <View style={styles.optionDivider} />
+
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowPhotoViewerOptions(false);
+                    handleSavePostToggle();
+                  }}
+                  style={styles.optionItem}
+                >
+                  <BookmarkIcon size={16} color={isSaved ? "#438def" : "#333"} filled={isSaved} />
+                  <Text style={[styles.optionText, isSaved ? { color: "#438def" } : null]}>
+                    {isSaved ? "Saved" : "Save Post"}
+                  </Text>
+                </TouchableOpacity>
+
+                {isAuthor && (
+                  <>
+                    <View style={styles.optionDivider} />
+                    <TouchableOpacity
+                      onPress={() => {
+                        setShowPhotoViewerOptions(false);
+                        setIsPhotoViewerVisible(false);
+                        handleDeletePost();
+                      }}
+                      style={styles.optionItem}
+                    >
+                      <DeleteIcon size={16} color="red" />
+                      <Text style={[styles.optionText, { color: "red" }]}>Delete Post</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+
+                {!isAuthor && (
+                  <>
+                    <View style={styles.optionDivider} />
+                    <TouchableOpacity
+                      onPress={() => {
+                        setShowPhotoViewerOptions(false);
+                        handleReportPost();
+                      }}
+                      style={styles.optionItem}
+                    >
+                      <ReportIcon size={16} color="red" />
+                      <Text style={[styles.optionText, { color: "red" }]}>Report Post</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            )}
+
+            {/* 2. Middle Image Frame (Dark theme) with Native zoom & pan */}
+            <View style={styles.viewerImageContainer}>
+              {(() => {
+                const getImagesList = () => {
+                  if (!item.image) return [];
+                  if (Array.isArray(item.image)) return item.image;
+                  if (item.image.uri && typeof item.image.uri === 'string' && item.image.uri.includes(',')) {
+                    return item.image.uri.split(',').map(url => ({ uri: url }));
+                  }
+                  return [item.image];
+                };
+                const images = getImagesList();
+                if (images.length > 0 && images[photoViewerIndex]) {
+                  return (
+                    <ZoomableImage
+                      source={images[photoViewerIndex]}
+                      style={styles.viewerImage}
+                    />
+                  );
+                }
+                return null;
+              })()}
+            </View>
+
+            {/* 3. Bottom Content & Actions (Light theme) */}
+            <View style={styles.viewerCardFooter}>
+              {/* Post Description Content (ScrollView in case it is long) */}
+              {item.content ? (
+                <ScrollView style={styles.viewerContentScroll} maxHeight={80} showsVerticalScrollIndicator={false}>
+                  <Text style={styles.viewerContentText}>
+                    {renderTextWithMentions(item.content, styles.mentionLink, styles.viewerContentText)}
+                  </Text>
+                </ScrollView>
+              ) : null}
+
+              {/* Counts Info Bar */}
+              {(totalReactions > 0 || commentsCount > 0) && (
+                <View style={styles.viewerInfoBar}>
+                  <View style={styles.infoReactions}>
+                    {totalReactions > 0 && (
+                      <>
+                        <View style={styles.emojiContainer}>
+                          {getTopReactionEmojis(reactionCounts).map((emoji, index) => (
+                            <View
+                              key={index}
+                              style={[
+                                styles.emojiCircle,
+                                {
+                                  marginLeft: index > 0 ? -6 : 0,
+                                  zIndex: 10 - index
+                                }
+                              ]}
+                            >
+                              <Text style={styles.infoReactionsEmojis}>{emoji}</Text>
+                            </View>
+                          ))}
+                        </View>
+                        <Text style={styles.viewerInfoReactionsText}>
+                          {totalReactions}
+                        </Text>
+                      </>
+                    )}
+                  </View>
+                  {commentsCount > 0 && (
+                    <Text style={styles.viewerInfoCommentsText}>
+                      {commentsCount} {commentsCount === 1 ? "comment" : "comments"}
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              {/* Action Buttons Row */}
+              <View style={styles.viewerActionsRow}>
+                {/* Like/Reaction Button */}
+                <Pressable
+                  onPress={handleToggleLike}
+                  onLongPress={() => setShowReactionsPanel(true)}
+                  delayLongPress={250}
+                  style={styles.viewerActionBtn}
+                >
+                  {myReaction ? (
+                    <Text style={{ fontSize: 20 }}>{getReactionEmoji(myReaction)}</Text>
+                  ) : (
+                    <Like width={20} height={20} color="#6B7280" />
+                  )}
+                  <Text style={[styles.viewerActionBtnText, myReaction ? { color: "#5096F1" } : { color: "#6B7280" }]}>
+                    {myReaction ? capitalize(myReaction) : "Like"}
+                  </Text>
+                </Pressable>
+
+                {/* Comment Button */}
+                <Pressable
+                  onPress={() => {
+                    setIsPhotoViewerVisible(false);
+                    navigateToComments();
+                  }}
+                  style={styles.viewerActionBtn}
+                >
+                  <Message width={20} height={20} color="#6B7280" />
+                  <Text style={[styles.viewerActionBtnText, { color: "#6B7280" }]}>Comment</Text>
+                </Pressable>
+
+                {/* Share Button */}
+                <Pressable
+                  onPress={handleSharePost}
+                  style={styles.viewerActionBtn}
+                >
+                  <Share width={20} height={20} color="#6B7280" />
+                  <Text style={[styles.viewerActionBtnText, { color: "#6B7280" }]}>Share</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </View>
       </Modal>
     </>
   );
@@ -1450,5 +1907,165 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: TYPOGRAPHY.semiBold,
     color: "#050505",
+  },
+  viewerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  viewerCard: {
+    width: Dimensions.get('window').width - 32,
+    maxHeight: '85%',
+    backgroundColor: '#FAFAFA',
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 15,
+    elevation: 15,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  viewerCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    backgroundColor: '#FFFFFF',
+  },
+  viewerHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  viewerHeaderActionBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  viewerHeaderActionText: {
+    color: '#4B5563',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  viewerCardOptionsDropdown: {
+    position: "absolute",
+    top: 60,
+    right: 50,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    borderRadius: 12,
+    paddingVertical: 5,
+    width: 150,
+    zIndex: 1001,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  viewerImageContainer: {
+    height: 320,
+    backgroundColor: '#111111',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  viewerImageWrapper: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: Dimensions.get("window").width - 32,
+    height: 320,
+  },
+  viewerImage: {
+    width: '100%',
+    height: '100%',
+  },
+  viewerCardFooter: {
+    padding: 16,
+    backgroundColor: '#FAFAFA',
+  },
+  viewerUserInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  viewerUserBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  viewerAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  viewerUserText: {
+    justifyContent: 'center',
+  },
+  viewerName: {
+    color: '#111111',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  viewerTime: {
+    color: '#6B7280',
+    fontSize: 11,
+  },
+  viewerContentScroll: {
+    marginBottom: 10,
+  },
+  viewerContentText: {
+    color: '#374151',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  viewerInfoBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6",
+    marginBottom: 8,
+  },
+  viewerInfoReactionsText: {
+    fontSize: 12,
+    color: "#6B7280",
+    fontWeight: "500",
+  },
+  viewerInfoCommentsText: {
+    fontSize: 12,
+    color: "#6B7280",
+    fontWeight: "500",
+  },
+  viewerActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  viewerActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  viewerActionBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
 });
