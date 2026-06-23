@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
+const { getAuth } = require('firebase-admin/auth');
 const nodemailer = require('nodemailer');
 require('dotenv').config();
 
@@ -49,7 +50,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 
   try {
     // 1. Generate the secure reset link from Firebase Auth
-    const link = await admin.auth().generatePasswordResetLink(email);
+    const link = await getAuth().generatePasswordResetLink(email);
 
     // 2. Setup SMTP transporter
     const transporter = createTransporter();
