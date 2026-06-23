@@ -1,0 +1,19 @@
+# Dependency directories
+node_modules/
+server/node_modules/
+mobile/node_modules/
+
+# Local env files
+.env
+.env.local
+server/.env
+mobile/.env.local
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
