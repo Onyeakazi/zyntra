@@ -9,7 +9,7 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 async function run() {
   const { data, error } = await supabase
     .from('users')
-    .select('id, full_name, username, avatar_url, bio');
+    .select('id, full_name, email, username, avatar_url, bio');
   if (error) {
     console.error('Error fetching users:', error);
   } else {
