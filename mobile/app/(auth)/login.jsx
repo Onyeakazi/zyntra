@@ -34,6 +34,31 @@ if (!isExpoGo) {
   }
 }
 
+const mapAuthErrorToMessage = (error) => {
+    console.error("Auth Error:", error.code, error.message);
+    switch (error.code) {
+        case 'auth/invalid-credential':
+        case 'auth/wrong-password':
+        case 'auth/user-not-found':
+            return 'Incorrect email or password. Please check your credentials and try again.';
+        case 'auth/invalid-email':
+            return 'Please enter a valid email address.';
+        case 'auth/email-already-in-use':
+            return 'This email address is already in use by another account.';
+        case 'auth/weak-password':
+            return 'Password should be at least 6 characters.';
+        case 'auth/too-many-requests':
+            return 'Too many login attempts. Your account has been temporarily locked. Please try again later.';
+        case 'auth/network-request-failed':
+            return 'Network error. Please check your internet connection and try again.';
+        default:
+            if (error.message && error.message.includes('Firebase:')) {
+                return error.message.replace('Firebase:', '').replace(/\(auth\/.*\)\.?/, '').trim();
+            }
+            return error.message || 'An error occurred. Please try again.';
+    }
+};
+
 const Login = () => {
     const [active, setActive] = useState("signin");
     const [isFocused, setIsFocused] = useState(false);
@@ -246,7 +271,7 @@ const Login = () => {
             alert("Account created successfully!");
             router.push("/(tabs)");
         } catch (error) {
-            setError(error.message);
+            setError(mapAuthErrorToMessage(error));
         } finally {
             setLoading(false);
         }
@@ -308,7 +333,7 @@ const Login = () => {
             alert("Login successful!");
             router.push("/(tabs)");
         } catch (error) {
-            setError(error.message);
+            setError(mapAuthErrorToMessage(error));
         } finally {
             setLoading(false);
         }
