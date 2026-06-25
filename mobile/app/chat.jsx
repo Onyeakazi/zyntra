@@ -629,6 +629,25 @@ const ChatRoom = () => {
   const renderMessageItem = ({ item, index }) => {
     const isMyMessage = item.sender_id === currentUserId;
     
+    // Parse Story Reply JSON metadata if present
+    let isStoryReply = false;
+    let storyData = null;
+    let actualCommentText = item.content;
+
+    if (item.content && item.content.startsWith('[StoryReplyJson:')) {
+      const closingIndex = item.content.indexOf(']');
+      if (closingIndex !== -1) {
+        try {
+          const jsonStr = item.content.substring(16, closingIndex);
+          storyData = JSON.parse(jsonStr);
+          isStoryReply = true;
+          actualCommentText = item.content.substring(closingIndex + 1).trim();
+        } catch (e) {
+          console.error("Error parsing StoryReplyJson:", e);
+        }
+      }
+    }
+    
     // Determine if we should show a time/date separator above this message.
     // In our inverted list, index 0 is at the bottom (newest message),
     // and index messages.length - 1 is at the top (oldest message).
@@ -701,13 +720,43 @@ const ChatRoom = () => {
             </Pressable>
           )}
           <View style={styles.bubbleContainer}>
-            {item.image_url && (
+            {item.image_url && !isStoryReply && (
               <Image source={{ uri: item.image_url }} style={styles.bubbleImage} />
             )}
             {item.content && item.content !== "Sent an image" && (
               <View style={[styles.bubble, isMyMessage ? styles.myBubble : styles.theirBubble]}>
+                {isStoryReply && storyData && (
+                  <View style={[
+                    styles.storyReplyHighlightContainer,
+                    isMyMessage ? styles.myStoryReplyHighlight : styles.theirStoryReplyHighlight
+                  ]}>
+                    <Text style={[styles.storyReplyTitle, { color: isMyMessage ? 'rgba(255,255,255,0.7)' : '#888' }]}>
+                      Story Reply
+                    </Text>
+                    <View style={styles.storyReplyBubblePreview}>
+                      {storyData.type === 'text' ? (
+                        <View style={[styles.storyReplyMiniTextBg, { backgroundColor: storyData.bg || COLORS.accent }]}>
+                          <Text style={styles.storyReplyMiniText} numberOfLines={3}>{storyData.text}</Text>
+                        </View>
+                      ) : (
+                        <Image source={{ uri: storyData.url }} style={styles.storyReplyMiniImage} />
+                      )}
+                      <View style={styles.storyReplyInfo}>
+                        <Text 
+                          style={[
+                            styles.storyReplyCaption, 
+                            { color: isMyMessage ? '#fff' : '#6B7280' }
+                          ]} 
+                          numberOfLines={2}
+                        >
+                          {storyData.type === 'text' ? 'Text Story' : storyData.text || 'View Story Media'}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
                 <Text style={[styles.messageText, isMyMessage ? styles.myMessageText : styles.theirMessageText]}>
-                  {item.content}
+                  {actualCommentText}
                 </Text>
               </View>
             )}
@@ -1245,5 +1294,61 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.medium,
     color: '#6B7280',
     textAlign: 'center',
+  },
+  storyReplyHighlightContainer: {
+    borderRadius: 12,
+    padding: 8,
+    marginBottom: 6,
+    borderLeftWidth: 3,
+    width: '100%',
+    minWidth: 160,
+  },
+  myStoryReplyHighlight: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderLeftColor: '#FFFFFF',
+  },
+  theirStoryReplyHighlight: {
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderLeftColor: COLORS.accent,
+  },
+  storyReplyTitle: {
+    fontSize: 9,
+    fontFamily: TYPOGRAPHY.bold,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  storyReplyBubblePreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  storyReplyMiniImage: {
+    width: 36,
+    height: 50,
+    borderRadius: 6,
+    backgroundColor: '#000',
+  },
+  storyReplyMiniTextBg: {
+    width: 36,
+    height: 50,
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 3,
+  },
+  storyReplyMiniText: {
+    color: '#fff',
+    fontSize: 5,
+    textAlign: 'center',
+    fontFamily: TYPOGRAPHY.bold,
+  },
+  storyReplyInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  storyReplyCaption: {
+    fontSize: 12,
+    fontFamily: TYPOGRAPHY.regular,
   },
 });

@@ -1,4 +1,4 @@
-import { Dimensions, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator, RefreshControl, TextInput, Keyboard } from "react-native";
+import { Dimensions, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator, RefreshControl, TextInput, Keyboard, Modal, Platform } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import ScreenWrapper from "../../components/ScreenWrapper";
 import Search from "../../assets/vectors/search.svg";
@@ -18,6 +18,10 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { formatPostTime } from "../../utils/timeFormat";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Svg, { Path } from "react-native-svg";
+import * as ImagePicker from "expo-image-picker";
+import StoryCreator from "../../components/StoryCreator";
+import StoryViewer from "../../components/StoryViewer";
+import { Ionicons } from "@expo/vector-icons";
 
 const BackIcon = ({ color = "#111", size = 24 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -35,6 +39,261 @@ export default function Index() {
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [recentSearches, setRecentSearches] = useState([]);
   const navigation = useNavigation();
+
+  // Stories States
+  const [activeStories, setActiveStories] = useState([]);
+  const [isStoryTypePickerVisible, setIsStoryTypePickerVisible] = useState(false);
+  const [isStoryCreatorVisible, setIsStoryCreatorVisible] = useState(false);
+  const [isStoryViewerVisible, setIsStoryViewerVisible] = useState(false);
+  const [selectedStoryMedia, setSelectedStoryMedia] = useState(null);
+  const [selectedStoryMediaType, setSelectedStoryMediaType] = useState("image"); // "image", "video", "text"
+  const [isStorySharing, setIsStorySharing] = useState(false);
+  const [activeStoryGroupIndex, setActiveStoryGroupIndex] = useState(0);
+
+  const fetchActiveStories = useCallback(async () => {
+    try {
+      console.log("Fetching active stories...");
+      const { data, error } = await supabase
+        .from("stories")
+        .select(`
+          *,
+          user:user_id (
+            id,
+            full_name,
+            avatar_url,
+            username
+          )
+        `)
+        .gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+
+      // Group stories by user_id
+      const grouped = {};
+      (data || []).forEach((story) => {
+        const userId = story.user_id;
+        if (!grouped[userId]) {
+          grouped[userId] = {
+            userId,
+            user: story.user || {
+              full_name: "Anonymous User",
+              avatar_url: null,
+              username: "anonymous"
+            },
+            stories: [],
+          };
+        }
+        grouped[userId].stories.push(story);
+      });
+
+      // Sort: logged-in user's stories first, then other stories sorted by latest story time descending
+      const currentUid = auth.currentUser?.uid;
+      const sortedGroups = Object.values(grouped).sort((a, b) => {
+        if (a.userId === currentUid) return -1;
+        if (b.userId === currentUid) return 1;
+        
+        const aLatest = a.stories[a.stories.length - 1].created_at;
+        const bLatest = b.stories[b.stories.length - 1].created_at;
+        return new Date(bLatest) - new Date(aLatest);
+      });
+
+      setActiveStories(sortedGroups);
+      
+      // Check milestones for user's own stories
+      checkStoryViewMilestones();
+    } catch (err) {
+      console.error("Error fetching active stories:", err);
+    }
+  }, [checkStoryViewMilestones]);
+
+  const checkStoryViewMilestones = useCallback(async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+    try {
+      const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+      const { data: myStories, error } = await supabase
+        .from("stories")
+        .select("id, expires_at, created_at")
+        .eq("user_id", user.uid)
+        .gt("created_at", fortyEightHoursAgo);
+
+      if (error || !myStories) return;
+
+      for (const story of myStories) {
+        const { data: existingNotif } = await supabase
+          .from("notifications")
+          .select("id")
+          .eq("receiver_id", user.uid)
+          .eq("type", "story_view_milestone")
+          .eq("story_id", story.id)
+          .maybeSingle();
+
+        if (existingNotif) continue;
+
+        const expiresTime = new Date(story.expires_at).getTime();
+        const timeLeftMs = expiresTime - Date.now();
+
+        if (timeLeftMs <= 2 * 60 * 60 * 1000) {
+          const { count, error: countErr } = await supabase
+            .from("story_views")
+            .select("id", { count: "exact", head: true })
+            .eq("story_id", story.id);
+
+          if (countErr) continue;
+
+          await supabase
+            .from("notifications")
+            .insert({
+              receiver_id: user.uid,
+              sender_id: "system",
+              type: "story_view_milestone",
+              story_id: story.id,
+              story_reaction: String(count || 0),
+              is_read: false
+            });
+        }
+      }
+    } catch (err) {
+      console.error("Error checking story view milestones:", err);
+    }
+  }, []);
+
+  const pickStoryImage = async () => {
+    try {
+      setIsStoryTypePickerVisible(false);
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setSelectedStoryMedia(result.assets[0].uri);
+        setSelectedStoryMediaType('image');
+        setIsStoryCreatorVisible(true);
+      }
+    } catch (error) {
+      console.error("Error picking story image:", error);
+      alert("Failed to pick image");
+    }
+  };
+
+  const pickStoryVideo = async () => {
+    try {
+      setIsStoryTypePickerVisible(false);
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setSelectedStoryMedia(result.assets[0].uri);
+        setSelectedStoryMediaType('video');
+        setIsStoryCreatorVisible(true);
+      }
+    } catch (error) {
+      console.error("Error picking story video:", error);
+      alert("Failed to pick video");
+    }
+  };
+
+  const startTextStory = () => {
+    setIsStoryTypePickerVisible(false);
+    setSelectedStoryMedia(null);
+    setSelectedStoryMediaType('text');
+    setIsStoryCreatorVisible(true);
+  };
+
+  const uploadStoryToCloudinary = async (uri, type) => {
+    try {
+      const formData = new FormData();
+      let cleanUri = uri;
+      try {
+        let decoded = decodeURIComponent(cleanUri);
+        while (decoded !== cleanUri) {
+          cleanUri = decoded;
+          decoded = decodeURIComponent(cleanUri);
+        }
+      } catch (e) {}
+
+      let extension = type === "video" ? "mp4" : "jpg";
+      let filename = cleanUri.split("/").pop() || `story.${extension}`;
+      if (!filename.includes(".")) {
+        filename = `${filename}.${extension}`;
+      }
+
+      let mimeType = type === "video" ? "video/mp4" : "image/jpeg";
+
+      if (Platform.OS === "web") {
+        const response = await fetch(cleanUri);
+        const blob = await response.blob();
+        formData.append("file", blob, filename);
+      } else {
+        formData.append("file", {
+          uri: cleanUri,
+          type: mimeType,
+          name: filename,
+        });
+      }
+      formData.append("upload_preset", "avatar");
+
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/dcazbfdaw/${type}/upload`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await response.json();
+      if (!data.secure_url) {
+        throw new Error(data.error?.message || "Cloudinary upload failed");
+      }
+      return data.secure_url;
+    } catch (err) {
+      console.error("Story Cloudinary upload error:", err);
+      throw err;
+    }
+  };
+
+  const handleShareStory = async ({ mediaUri, mediaType, caption, backgroundColor }) => {
+    const user = auth.currentUser;
+    if (!user) {
+      alert("You must be logged in to share a story");
+      return;
+    }
+
+    setIsStorySharing(true);
+    try {
+      let finalMediaUrl = null;
+      if (mediaType !== 'text' && mediaUri) {
+        finalMediaUrl = await uploadStoryToCloudinary(mediaUri, mediaType);
+      }
+
+      const { error } = await supabase
+        .from("stories")
+        .insert({
+          user_id: user.uid,
+          media_url: finalMediaUrl,
+          media_type: mediaType,
+          caption: caption,
+          background_color: backgroundColor,
+          created_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        });
+
+      if (error) throw error;
+
+      setIsStoryCreatorVisible(false);
+      alert("Story shared successfully!");
+      fetchActiveStories();
+    } catch (err) {
+      console.error("Sharing story failed:", err);
+      alert("Failed to share story: " + err.message);
+    } finally {
+      setIsStorySharing(false);
+    }
+  };
 
   // Hide parent tab bar when search overlay is active
   useEffect(() => {
@@ -368,6 +627,7 @@ export default function Index() {
     useCallback(() => {
       fetchFeed(feeds.length === 0);
       fetchAvatar();
+      fetchActiveStories();
       
       const loadRecentSearches = async () => {
         try {
@@ -386,24 +646,17 @@ export default function Index() {
         setSearchQuery("");
         setIsSearchSubmitted(false);
       };
-    }, [feeds.length, fetchAvatar])
+    }, [feeds.length, fetchAvatar, fetchActiveStories])
   );
 
   const handleRefresh = () => {
     setRefreshing(true);
     fetchFeed(false);
+    fetchActiveStories();
   };
 
   const { width } = Dimensions.get("screen");
   const logoWidth = width * 0.4;
-
-  const stories = [
-    { id: "1", name: "John Berry", image: require("../../assets/images/profile.png") },
-    { id: "2", name: "David", image: require("../../assets/images/profile.png") },
-    { id: "3", name: "Sarah", image: require("../../assets/images/profile.png") },
-    { id: "4", name: "Daniel", image: require("../../assets/images/profile.png") },
-    { id: "5", name: "Daniel", image: require("../../assets/images/profile.png") },
-  ];
 
   const Header = () => (
     <View>
@@ -464,12 +717,35 @@ export default function Index() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ alignItems: "center", paddingVertical: 5 }}
+          contentContainerStyle={{ alignItems: "center", paddingVertical: 5, paddingHorizontal: 8 }}
         >
-          <Story image={require("../../assets/images/story.png")} name="Your Story" isOwnStory />
-          {stories.map((item) => (
-            <Story key={item.id} image={item.image} name={item.name} />
-          ))}
+          {/* Own Story Card (Create Story) */}
+          <Story
+            isOwnStory
+            image={avatar ? { uri: avatar } : require("../../assets/images/default.png")}
+            name="Create Story"
+            onclick={() => setIsStoryTypePickerVisible(true)}
+          />
+          
+          {/* Active Stories */}
+          {activeStories.map((group, index) => {
+            const latestStory = group.stories[group.stories.length - 1];
+            return (
+              <Story
+                key={group.userId}
+                image={latestStory.media_type !== 'text' ? { uri: latestStory.media_url } : null}
+                avatar={group.user.avatar_url ? { uri: group.user.avatar_url } : require("../../assets/images/default.png")}
+                name={group.userId === auth.currentUser?.uid ? "Your Story" : group.user.full_name}
+                mediaType={latestStory.media_type}
+                backgroundColor={latestStory.background_color}
+                caption={latestStory.caption}
+                onclick={() => {
+                  setActiveStoryGroupIndex(index);
+                  setIsStoryViewerVisible(true);
+                }}
+              />
+            );
+          })}
         </ScrollView>
       </View>
     </View>
@@ -693,6 +969,78 @@ export default function Index() {
           </View>
         }
       />
+
+      {/* STORY TYPE SELECTION SHEET (Modal) */}
+      <Modal
+        visible={isStoryTypePickerVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsStoryTypePickerVisible(false)}
+      >
+        <Pressable
+          style={styles.pickerModalBackdrop}
+          onPress={() => setIsStoryTypePickerVisible(false)}
+        >
+          <View style={styles.pickerModalContent}>
+            <View style={styles.pickerHeaderBar}>
+              <View style={styles.pickerHeaderIndicator} />
+              <Text style={styles.pickerTitle}>Create Story</Text>
+            </View>
+
+            <Pressable style={styles.pickerOption} onPress={pickStoryImage}>
+              <View style={[styles.pickerIconBg, { backgroundColor: '#E1F5FE' }]}>
+                <Ionicons name="image-outline" size={24} color="#0288D1" />
+              </View>
+              <Text style={styles.pickerOptionText}>Photo Story</Text>
+            </Pressable>
+
+            <Pressable style={styles.pickerOption} onPress={pickStoryVideo}>
+              <View style={[styles.pickerIconBg, { backgroundColor: '#EDE7F6' }]}>
+                <Ionicons name="videocam-outline" size={24} color="#5E35B1" />
+              </View>
+              <Text style={styles.pickerOptionText}>Video Story</Text>
+            </Pressable>
+
+            <Pressable style={styles.pickerOption} onPress={startTextStory}>
+              <View style={[styles.pickerIconBg, { backgroundColor: '#E8F5E9' }]}>
+                <Ionicons name="text-outline" size={24} color="#2E7D32" />
+              </View>
+              <Text style={styles.pickerOptionText}>Text Story</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.pickerCancelBtn}
+              onPress={() => setIsStoryTypePickerVisible(false)}
+            >
+              <Text style={styles.pickerCancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* STORY CREATOR MODAL */}
+      <StoryCreator
+        visible={isStoryCreatorVisible}
+        mediaUri={selectedStoryMedia}
+        mediaType={selectedStoryMediaType}
+        onCancel={() => setIsStoryCreatorVisible(false)}
+        onShare={handleShareStory}
+        sharing={isStorySharing}
+      />
+
+      {/* STORY PLAYBACK VIEWER */}
+      {activeStories.length > 0 && (
+        <StoryViewer
+          visible={isStoryViewerVisible}
+          storyGroups={activeStories}
+          initialGroupIndex={activeStoryGroupIndex}
+          onClose={() => setIsStoryViewerVisible(false)}
+          onStoryDeleted={() => {
+            setIsStoryViewerVisible(false);
+            fetchActiveStories();
+          }}
+        />
+      )}
     </ScreenWrapper>
   );
 }
@@ -980,5 +1328,66 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.regular,
     color: "#6B7280",
     marginTop: 3,
+  },
+  pickerModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'flex-end',
+  },
+  pickerModalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    paddingTop: 12,
+  },
+  pickerHeaderBar: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  pickerHeaderIndicator: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 2,
+    marginBottom: 8,
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontFamily: TYPOGRAPHY.bold,
+    color: COLORS.primary,
+  },
+  pickerOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#F3F4F6',
+  },
+  pickerIconBg: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  pickerOptionText: {
+    fontSize: 16,
+    fontFamily: TYPOGRAPHY.medium,
+    color: COLORS.primary,
+  },
+  pickerCancelBtn: {
+    marginTop: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+  },
+  pickerCancelText: {
+    fontSize: 16,
+    fontFamily: TYPOGRAPHY.semiBold,
+    color: '#4B5563',
   },
 });

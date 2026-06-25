@@ -6,7 +6,8 @@ import {
   Image, 
   Pressable, 
   ActivityIndicator, 
-  RefreshControl 
+  RefreshControl,
+  Alert
 } from 'react-native';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import { StatusBar } from 'expo-status-bar';
@@ -42,6 +43,8 @@ const NotificationScreen = () => {
           type,
           post_id,
           comment_id,
+          story_id,
+          story_reaction,
           is_read,
           created_at,
           sender:users!notifications_sender_id_fkey (
@@ -55,6 +58,11 @@ const NotificationScreen = () => {
           ),
           post_comments (
             content
+          ),
+          stories (
+            media_type,
+            media_url,
+            caption
           )
         `)
         .eq("receiver_id", currentUserId)
@@ -141,6 +149,15 @@ const NotificationScreen = () => {
       await handleMarkAsRead(item.id);
     }
 
+    if (item.type === 'story_view_milestone') {
+      Alert.alert("Story Views", `Your story received ${item.story_reaction} views before it expired.`);
+      return;
+    }
+    if (item.story_id) {
+      Alert.alert("Story Reaction", `${item.sender?.full_name || "Someone"} reacted ${item.story_reaction || "❤️"} to your story.`);
+      return;
+    }
+
     // Navigation based on notification type
     if (item.type === 'connection_request' || item.type === 'connection_accepted') {
       router.push({
@@ -202,6 +219,10 @@ const NotificationScreen = () => {
     );
 
     switch (item.type) {
+      case 'story_reaction':
+        return <>{renderSender()} reacted to your story: {item.story_reaction}</>;
+      case 'story_view_milestone':
+        return <>Your story received {item.story_reaction} views before expiring.</>;
       case 'repost':
         const repostPreview = item.posts?.content 
           ? ` "${item.posts.content.substring(0, 25)}${item.posts.content.length > 25 ? '...' : ''}"` 
@@ -320,6 +341,10 @@ const NotificationScreen = () => {
 
   const getBadgeStyle = (type) => {
     switch (type) {
+      case 'story_reaction':
+        return { bg: '#FFF5F5', color: '#EF4444', emoji: '❤️' };
+      case 'story_view_milestone':
+        return { bg: '#E0F2FE', color: '#0EA5E9', emoji: '👁️' };
       case 'reaction':
         return { bg: '#FEE2E2', color: '#EF4444', emoji: '❤️' };
       case 'comment':
