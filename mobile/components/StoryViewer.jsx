@@ -612,15 +612,17 @@ const StoryViewer = ({
                   </View>
                 </View>
               ) : (
-                /* Own story: show views summary pill */
-                <View style={styles.ownStoryBottomContainer}>
-                  <Pressable style={styles.viewsIndicatorPill} onPress={() => setIsViewersModalOpen(true)}>
-                    <Ionicons name="eye-outline" size={16} color="#fff" />
-                    <Text style={styles.viewsIndicatorText}>
-                      {viewers.length} {viewers.length === 1 ? 'view' : 'views'}
-                    </Text>
-                  </Pressable>
-                </View>
+                /* Own story: show views summary pill if viewers list is closed */
+                !isViewersModalOpen && (
+                  <View style={styles.ownStoryBottomContainer}>
+                    <Pressable style={styles.viewsIndicatorPill} onPress={() => setIsViewersModalOpen(true)}>
+                      <Ionicons name="eye-outline" size={16} color="#fff" />
+                      <Text style={styles.viewsIndicatorText}>
+                        {viewers.length} {viewers.length === 1 ? 'view' : 'views'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                )
               )}
             </View>
           </KeyboardAvoidingView>
@@ -945,6 +947,7 @@ const styles = StyleSheet.create({
     top: 0,
     backgroundColor: 'rgba(0,0,0,0.75)',
     justifyContent: 'flex-end',
+    zIndex: 100,
   },
   viewersContent: {
     backgroundColor: '#1C1C1E',
