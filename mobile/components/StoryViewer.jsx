@@ -27,11 +27,12 @@ const StoryViewer = ({
   visible,
   storyGroups = [],
   initialGroupIndex = 0,
+  initialStoryIndex = 0,
   onClose,
   onStoryDeleted
 }) => {
   const [currentGroupIndex, setCurrentGroupIndex] = useState(initialGroupIndex)
-  const [currentStoryIndex, setCurrentStoryIndex] = useState(0)
+  const [currentStoryIndex, setCurrentStoryIndex] = useState(initialStoryIndex)
   
   // Pause states
   const [isHolding, setIsHolding] = useState(false)
@@ -64,14 +65,14 @@ const StoryViewer = ({
   useEffect(() => {
     if (visible) {
       setCurrentGroupIndex(initialGroupIndex)
-      setCurrentStoryIndex(0)
+      setCurrentStoryIndex(initialStoryIndex)
       setIsHolding(false)
       setIsInputFocused(false)
       setIsViewersModalOpen(false)
       setIsOptionsSheetOpen(false)
       setCommentText('')
     }
-  }, [visible, initialGroupIndex])
+  }, [visible, initialGroupIndex, initialStoryIndex])
 
   // Reset holding state if any overlay/input is active to prevent getting stuck when components unmount
   useEffect(() => {
@@ -310,6 +311,7 @@ const StoryViewer = ({
 
       // 3. Format message content with story reply metadata JSON wrapper
       const storyMetadata = {
+        id: activeStory.id,
         type: activeStory.media_type,
         bg: activeStory.background_color || '',
         text: activeStory.caption || '',
@@ -497,7 +499,7 @@ const StoryViewer = ({
                   </View>
                 </View>
                 <View style={styles.headerActions}>
-                  {activeStory.user_id === currentUid && (
+                  {activeStory.user_id === currentUid && !activeStory.isMocked && (
                     <View style={styles.actionMenuContainer}>
                       <Pressable style={styles.actionMenuButton} onPress={handleOpenDeleteMenu}>
                         <Ionicons name="ellipsis-horizontal" size={24} color="#fff" />
@@ -560,7 +562,11 @@ const StoryViewer = ({
               ) : null}
 
               {/* REACTIONS / DM INPUT OR VIEWS PILL */}
-              {activeStory.user_id !== currentUid ? (
+              {activeStory.isMocked ? (
+                <View style={styles.expiredStoryBottomContainer}>
+                  <Text style={styles.expiredStoryText}>This story has expired</Text>
+                </View>
+              ) : activeStory.user_id !== currentUid ? (
                 <View style={styles.bottomInteractiveContainer}>
                   {/* Emoji Reactions Row */}
                   <View style={styles.reactionsRow}>
@@ -1058,5 +1064,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#333",
     fontFamily: TYPOGRAPHY.medium,
+  },
+  expiredStoryBottomContainer: {
+    paddingBottom: Platform.OS === 'ios' ? 24 : 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  expiredStoryText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 14,
+    fontFamily: TYPOGRAPHY.medium,
+    fontStyle: 'italic',
   },
 })

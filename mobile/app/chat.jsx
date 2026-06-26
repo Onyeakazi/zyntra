@@ -14,6 +14,7 @@ import {
   Keyboard
 } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
+import StoryViewer from '../components/StoryViewer';
 import { StatusBar } from 'expo-status-bar';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
@@ -165,6 +166,11 @@ const ChatRoom = () => {
   const [sending, setSending] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [onlineUserIds, setOnlineUserIds] = useState([]);
+
+  // Story viewer overlay states
+  const [isStoryViewerVisible, setIsStoryViewerVisible] = useState(false);
+  const [activeStoryGroup, setActiveStoryGroup] = useState([]);
+  const [activeStoryIndex, setActiveStoryIndex] = useState(0);
 
   useEffect(() => {
     // Set initial presence from global cache
@@ -626,8 +632,94 @@ const ChatRoom = () => {
     );
   };
 
+  const handlePressStoryReply = async (storyData, storyCreatorId) => {
+    if (!storyData) return;
+    
+    try {
+      if (storyData.id) {
+        // 1. Fetch active stories for this creator from Supabase
+        const { data, error } = await supabase
+          .from("stories")
+          .select(`
+            *,
+            user:user_id (
+              id,
+              full_name,
+              avatar_url,
+              username
+            )
+          `)
+          .eq("user_id", storyCreatorId)
+          .gt("expires_at", new Date().toISOString())
+          .order("created_at", { ascending: true });
+        
+        if (!error && data && data.length > 0) {
+          // Group the active stories
+          const group = {
+            userId: storyCreatorId,
+            user: data[0].user || {
+              full_name: recipient?.full_name || "User",
+              avatar_url: recipient?.avatar_url || null,
+              username: recipient?.username || "username"
+            },
+            stories: data
+          };
+          
+          // Find the exact index of the story replied to
+          const storyIndex = data.findIndex(s => s.id === storyData.id);
+          const startStoryIndex = storyIndex !== -1 ? storyIndex : 0;
+          
+          setActiveStoryGroup([group]);
+          setActiveStoryIndex(startStoryIndex);
+          setIsStoryViewerVisible(true);
+          return;
+        }
+      }
+      
+      // 2. Fallback: Construct a temporary mocked story group (for expired or deleted stories)
+      const isOwner = storyCreatorId === currentUserId;
+      const creatorUser = isOwner ? {
+        id: currentUserId,
+        full_name: auth.currentUser?.displayName || "You",
+        avatar_url: auth.currentUser?.photoURL || null,
+        username: "me"
+      } : {
+        id: storyCreatorId,
+        full_name: recipient?.full_name || "User",
+        avatar_url: recipient?.avatar_url || null,
+        username: recipient?.username || "username"
+      };
+
+      const mockStory = {
+        id: storyData.id || 'mocked-story-id',
+        user_id: storyCreatorId,
+        media_type: storyData.type || 'image',
+        media_url: storyData.url || '',
+        caption: storyData.text || '',
+        background_color: storyData.bg || '',
+        created_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        isMocked: true
+      };
+
+      const group = {
+        userId: storyCreatorId,
+        user: creatorUser,
+        stories: [mockStory]
+      };
+
+      setActiveStoryGroup([group]);
+      setActiveStoryIndex(0);
+      setIsStoryViewerVisible(true);
+    } catch (err) {
+      console.error("Error opening story from chat:", err);
+      Alert.alert("Error", "Could not open story viewer.");
+    }
+  };
+
   const renderMessageItem = ({ item, index }) => {
     const isMyMessage = item.sender_id === currentUserId;
+    const storyCreatorId = isMyMessage ? recipient?.id : currentUserId;
     
     // Parse Story Reply JSON metadata if present
     let isStoryReply = false;
@@ -726,10 +818,13 @@ const ChatRoom = () => {
             {item.content && item.content !== "Sent an image" && (
               <View style={[styles.bubble, isMyMessage ? styles.myBubble : styles.theirBubble]}>
                 {isStoryReply && storyData && (
-                  <View style={[
-                    styles.storyReplyHighlightContainer,
-                    isMyMessage ? styles.myStoryReplyHighlight : styles.theirStoryReplyHighlight
-                  ]}>
+                  <Pressable 
+                    style={[
+                      styles.storyReplyHighlightContainer,
+                      isMyMessage ? styles.myStoryReplyHighlight : styles.theirStoryReplyHighlight
+                    ]}
+                    onPress={() => handlePressStoryReply(storyData, storyCreatorId)}
+                  >
                     <Text style={[styles.storyReplyTitle, { color: isMyMessage ? 'rgba(255,255,255,0.7)' : '#888' }]}>
                       Story Reply
                     </Text>
@@ -753,7 +848,7 @@ const ChatRoom = () => {
                         </Text>
                       </View>
                     </View>
-                  </View>
+                  </Pressable>
                 )}
                 <Text style={[styles.messageText, isMyMessage ? styles.myMessageText : styles.theirMessageText]}>
                   {actualCommentText}
@@ -919,6 +1014,21 @@ const ChatRoom = () => {
           )
         )}
       </KeyboardAvoidingView>
+
+      {/* STORY PLAYBACK VIEWER */}
+      {activeStoryGroup.length > 0 && (
+        <StoryViewer
+          visible={isStoryViewerVisible}
+          storyGroups={activeStoryGroup}
+          initialGroupIndex={0}
+          initialStoryIndex={activeStoryIndex}
+          onClose={() => setIsStoryViewerVisible(false)}
+          onStoryDeleted={() => {
+            setIsStoryViewerVisible(false);
+            fetchConversationAndRecipient();
+          }}
+        />
+      )}
     </ScreenWrapper>
   );
 };
