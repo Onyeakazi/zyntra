@@ -510,14 +510,7 @@ const MessageScreen = () => {
     const isUnread = unreadCount > 0;
 
     return (
-      <Pressable
-        onPress={() => router.push({
-          pathname: "/chat",
-          params: { conversationId: item.id }
-        })}
-        onLongPress={() => showChatOptions(item)}
-        style={styles.chatCard}
-      >
+      <View style={styles.chatCard}>
         <Pressable 
           onPress={() => {
             const userGroupIndex = activeStoryGroups.findIndex(g => g.userId === recipient.id);
@@ -549,51 +542,60 @@ const MessageScreen = () => {
           )}
         </Pressable>
 
-        <View style={styles.cardContent}>
-          <Text style={[styles.nameText, isUnread ? styles.unreadTextBold : null]}>
-            {recipient.full_name || "User"}
-          </Text>
-          <Text
-            style={[styles.messageText, isUnread ? styles.unreadTextBold : null]}
-            numberOfLines={1}
-          >
-            {item.last_message 
-              ? (item.last_sender_id === currentUserId ? `You: ${item.last_message}` : item.last_message)
-              : "No messages yet"
-            }
-          </Text>
-        </View>
+        <Pressable
+          onPress={() => router.push({
+            pathname: "/chat",
+            params: { conversationId: item.id }
+          })}
+          onLongPress={() => showChatOptions(item)}
+          style={styles.cardContentWrapper}
+        >
+          <View style={styles.cardContent}>
+            <Text style={[styles.nameText, isUnread ? styles.unreadTextBold : null]}>
+              {recipient.full_name || "User"}
+            </Text>
+            <Text
+              style={[styles.messageText, isUnread ? styles.unreadTextBold : null]}
+              numberOfLines={1}
+            >
+              {item.last_message 
+                ? (item.last_sender_id === currentUserId ? `You: ${item.last_message}` : item.last_message)
+                : "No messages yet"
+              }
+            </Text>
+          </View>
 
-        <View style={styles.cardRight}>
-          <Text style={styles.timeText}>
-            {getRelativeTime(item.updated_at)}
-          </Text>
-          {isUnread ? (
-            <View style={styles.unreadBadge}>
-              <Text style={styles.unreadBadgeText}>
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </Text>
-            </View>
-          ) : (
-            item.last_sender_id === currentUserId && item.messages && item.messages.length > 0 && (
-              <View style={styles.readStatusContainerCard}>
-                {item.messages[0].is_read ? (
-                  <Image
-                    source={
-                      recipient.avatar_url && recipient.avatar_url.trim() !== ""
-                        ? { uri: recipient.avatar_url }
-                        : require("../../assets/images/default.png")
-                    }
-                    style={styles.tinyReadAvatarCard}
-                  />
-                ) : (
-                  <SentCheckIcon size={12} filled={recipient && onlineUserIds.includes(recipient.id)} />
-                )}
+          <View style={styles.cardRight}>
+            <Text style={styles.timeText}>
+              {getRelativeTime(item.updated_at)}
+            </Text>
+            {isUnread ? (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadBadgeText}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Text>
               </View>
-            )
-          )}
-        </View>
-      </Pressable>
+            ) : (
+              item.last_sender_id === currentUserId && item.messages && item.messages.length > 0 && (
+                <View style={styles.readStatusContainerCard}>
+                  {item.messages[0].is_read ? (
+                    <Image
+                      source={
+                        recipient.avatar_url && recipient.avatar_url.trim() !== ""
+                          ? { uri: recipient.avatar_url }
+                          : require("../../assets/images/default.png")
+                      }
+                      style={styles.tinyReadAvatarCard}
+                    />
+                  ) : (
+                    <SentCheckIcon size={12} filled={recipient && onlineUserIds.includes(recipient.id)} />
+                  )}
+                </View>
+              )
+            )}
+          </View>
+        </Pressable>
+      </View>
     );
   };
 
@@ -1033,6 +1035,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F9FAFB',
     backgroundColor: '#FFFFFF',
+  },
+
+  cardContentWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 
   avatar: {

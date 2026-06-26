@@ -71,6 +71,11 @@ const StoryViewer = ({
       setIsViewersModalOpen(false)
       setIsOptionsSheetOpen(false)
       setCommentText('')
+    } else {
+      setCurrentGroupIndex(0)
+      setCurrentStoryIndex(0)
+      progressAnim.setValue(0)
+      progressVal.current = 0
     }
   }, [visible, initialGroupIndex, initialStoryIndex])
 
