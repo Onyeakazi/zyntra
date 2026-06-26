@@ -13,6 +13,7 @@ import {
   Alert
 } from 'react-native';
 import ScreenWrapper from '../../components/ScreenWrapper';
+import StoryViewer from '../../components/StoryViewer';
 import { StatusBar } from 'expo-status-bar';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -92,6 +93,11 @@ const MessageScreen = () => {
   const [onlineUserNotes, setOnlineUserNotes] = useState({});
   const [statusModalVisible, setStatusModalVisible] = useState(false);
   const [statusInputText, setStatusInputText] = useState("");
+
+  // Story viewer states
+  const [activeStoryGroups, setActiveStoryGroups] = useState([]);
+  const [isStoryViewerVisible, setIsStoryViewerVisible] = useState(false);
+  const [selectedStoryGroupIndex, setSelectedStoryGroupIndex] = useState(0);
 
   const presenceChannelRef = useRef(null);
 
@@ -207,19 +213,70 @@ const MessageScreen = () => {
     }
   };
 
+  const fetchActiveStories = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("stories")
+        .select(`
+          *,
+          user:user_id (
+            id,
+            full_name,
+            avatar_url,
+            username
+          )
+        `)
+        .gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+
+      const grouped = {};
+      (data || []).forEach((story) => {
+        const userId = story.user_id;
+        if (!grouped[userId]) {
+          grouped[userId] = {
+            userId,
+            user: story.user || {
+              full_name: "User",
+              avatar_url: null,
+              username: "user"
+            },
+            stories: [],
+          };
+        }
+        grouped[userId].stories.push(story);
+      });
+
+      const sorted = Object.values(grouped).sort((a, b) => {
+        if (a.userId === currentUserId) return -1;
+        if (b.userId === currentUserId) return 1;
+        const aLatest = a.stories[a.stories.length - 1].created_at;
+        const bLatest = b.stories[b.stories.length - 1].created_at;
+        return new Date(bLatest) - new Date(aLatest);
+      });
+
+      setActiveStoryGroups(sorted);
+    } catch (err) {
+      console.error("Error fetching active stories in MessageScreen:", err);
+    }
+  }, [currentUserId]);
+
   useFocusEffect(
     useCallback(() => {
       if (currentUserId) {
         fetchConversations();
         fetchConnections();
+        fetchActiveStories();
       }
-    }, [currentUserId])
+    }, [currentUserId, fetchActiveStories])
   );
 
   useEffect(() => {
     fetchConversations();
     fetchConnections();
     fetchCurrentUserProfile();
+    fetchActiveStories();
 
     // Set initial presence from global cache
     if (global.latestPresenceState) {
@@ -327,6 +384,7 @@ const MessageScreen = () => {
     fetchConversations();
     fetchConnections();
     fetchCurrentUserProfile();
+    fetchActiveStories();
   };
 
   const handleMarkAsRead = async (conversationId) => {
@@ -460,19 +518,36 @@ const MessageScreen = () => {
         onLongPress={() => showChatOptions(item)}
         style={styles.chatCard}
       >
-        <View style={styles.avatarContainer}>
+        <Pressable 
+          onPress={() => {
+            const userGroupIndex = activeStoryGroups.findIndex(g => g.userId === recipient.id);
+            if (userGroupIndex !== -1) {
+              setSelectedStoryGroupIndex(userGroupIndex);
+              setIsStoryViewerVisible(true);
+            } else {
+              router.push({
+                pathname: "/chat",
+                params: { conversationId: item.id }
+              });
+            }
+          }}
+          style={styles.avatarContainer}
+        >
           <Image
             source={
               recipient.avatar_url && recipient.avatar_url.trim() !== ""
                 ? { uri: recipient.avatar_url }
                 : require("../../assets/images/default.png")
             }
-            style={styles.avatar}
+            style={[
+              styles.avatar,
+              activeStoryGroups.some(g => g.userId === recipient.id) ? styles.activeAvatarWithStory : null
+            ]}
           />
           {onlineUserIds.includes(recipient.id) && (
             <View style={styles.greenDotIndicatorList} />
           )}
-        </View>
+        </Pressable>
 
         <View style={styles.cardContent}>
           <Text style={[styles.nameText, isUnread ? styles.unreadTextBold : null]}>
@@ -579,16 +654,28 @@ const MessageScreen = () => {
               contentContainerStyle={styles.activeListContent}
               renderItem={({ item }) => {
                 const isMe = item.isCurrentUser;
+                const userGroupIndex = activeStoryGroups.findIndex(g => g.userId === item.id);
+                const hasActiveStory = userGroupIndex !== -1;
                 return (
                   <Pressable
                     onPress={() => {
                       if (isMe) {
-                        setStatusModalVisible(true);
+                        if (hasActiveStory) {
+                          setSelectedStoryGroupIndex(userGroupIndex);
+                          setIsStoryViewerVisible(true);
+                        } else {
+                          setStatusModalVisible(true);
+                        }
                       } else {
-                        router.push({
-                          pathname: "/chat",
-                          params: { recipientId: item.id }
-                        });
+                        if (hasActiveStory) {
+                          setSelectedStoryGroupIndex(userGroupIndex);
+                          setIsStoryViewerVisible(true);
+                        } else {
+                          router.push({
+                            pathname: "/chat",
+                            params: { recipientId: item.id }
+                          });
+                        }
                       }
                     }}
                     style={styles.activeUserCard}
@@ -600,7 +687,11 @@ const MessageScreen = () => {
                             ? { uri: item.avatar_url }
                             : require("../../assets/images/default.png")
                         }
-                        style={[styles.activeAvatar, isMe ? styles.myActiveAvatar : null]}
+                        style={[
+                          styles.activeAvatar,
+                          isMe ? styles.myActiveAvatar : null,
+                          hasActiveStory ? styles.activeAvatarWithStory : null
+                        ]}
                       />
                       <View style={styles.greenDotIndicator} />
                       {isMe && (
@@ -806,6 +897,21 @@ const MessageScreen = () => {
             </View>
           </View>
         </Modal>
+
+        {/* STORY PLAYBACK VIEWER */}
+        {activeStoryGroups.length > 0 && (
+          <StoryViewer
+            visible={isStoryViewerVisible}
+            storyGroups={activeStoryGroups}
+            initialGroupIndex={selectedStoryGroupIndex}
+            initialStoryIndex={0}
+            onClose={() => setIsStoryViewerVisible(false)}
+            onStoryDeleted={() => {
+              setIsStoryViewerVisible(false);
+              fetchActiveStories();
+            }}
+          />
+        )}
       </View>
     </ScreenWrapper>
   );
@@ -1100,6 +1206,11 @@ const styles = StyleSheet.create({
   },
 
   myActiveAvatar: {
+    borderColor: '#E5E7EB',
+    borderWidth: 1.5,
+  },
+
+  activeAvatarWithStory: {
     borderColor: COLORS.accent,
     borderWidth: 2,
   },
