@@ -50,6 +50,58 @@ export default function Index() {
   const [isStorySharing, setIsStorySharing] = useState(false);
   const [activeStoryGroupIndex, setActiveStoryGroupIndex] = useState(0);
 
+  const checkStoryViewMilestones = useCallback(async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+    try {
+      const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+      const { data: myStories, error } = await supabase
+        .from("stories")
+        .select("id, expires_at, created_at")
+        .eq("user_id", user.uid)
+        .gt("created_at", fortyEightHoursAgo);
+
+      if (error || !myStories) return;
+
+      for (const story of myStories) {
+        const { data: existingNotif } = await supabase
+          .from("notifications")
+          .select("id")
+          .eq("receiver_id", user.uid)
+          .eq("type", "story_view_milestone")
+          .eq("story_id", story.id)
+          .maybeSingle();
+
+        if (existingNotif) continue;
+
+        const expiresTime = new Date(story.expires_at).getTime();
+        const timeLeftMs = expiresTime - Date.now();
+
+        if (timeLeftMs <= 2 * 60 * 60 * 1000) {
+          const { count, error: countErr } = await supabase
+            .from("story_views")
+            .select("id", { count: "exact", head: true })
+            .eq("story_id", story.id);
+
+          if (countErr) continue;
+
+          await supabase
+            .from("notifications")
+            .insert({
+              receiver_id: user.uid,
+              sender_id: "system",
+              type: "story_view_milestone",
+              story_id: story.id,
+              story_reaction: String(count || 0),
+              is_read: false
+            });
+        }
+      }
+    } catch (err) {
+      console.error("Error checking story view milestones:", err);
+    }
+  }, []);
+
   const fetchActiveStories = useCallback(async () => {
     try {
       console.log("Fetching active stories...");
@@ -106,58 +158,6 @@ export default function Index() {
       console.error("Error fetching active stories:", err);
     }
   }, [checkStoryViewMilestones]);
-
-  const checkStoryViewMilestones = useCallback(async () => {
-    const user = auth.currentUser;
-    if (!user) return;
-    try {
-      const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
-      const { data: myStories, error } = await supabase
-        .from("stories")
-        .select("id, expires_at, created_at")
-        .eq("user_id", user.uid)
-        .gt("created_at", fortyEightHoursAgo);
-
-      if (error || !myStories) return;
-
-      for (const story of myStories) {
-        const { data: existingNotif } = await supabase
-          .from("notifications")
-          .select("id")
-          .eq("receiver_id", user.uid)
-          .eq("type", "story_view_milestone")
-          .eq("story_id", story.id)
-          .maybeSingle();
-
-        if (existingNotif) continue;
-
-        const expiresTime = new Date(story.expires_at).getTime();
-        const timeLeftMs = expiresTime - Date.now();
-
-        if (timeLeftMs <= 2 * 60 * 60 * 1000) {
-          const { count, error: countErr } = await supabase
-            .from("story_views")
-            .select("id", { count: "exact", head: true })
-            .eq("story_id", story.id);
-
-          if (countErr) continue;
-
-          await supabase
-            .from("notifications")
-            .insert({
-              receiver_id: user.uid,
-              sender_id: "system",
-              type: "story_view_milestone",
-              story_id: story.id,
-              story_reaction: String(count || 0),
-              is_read: false
-            });
-        }
-      }
-    } catch (err) {
-      console.error("Error checking story view milestones:", err);
-    }
-  }, []);
 
   const pickStoryImage = async () => {
     try {
