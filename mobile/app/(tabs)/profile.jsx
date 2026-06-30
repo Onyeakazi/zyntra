@@ -46,6 +46,7 @@ const Profile = () => {
   const [connectionInitiator, setConnectionInitiator] = useState(null); // who sent the request
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
+  const [activeViewPost, setActiveViewPost] = useState(null);
 
   // Fetch connection status if not own profile
   const fetchConnectionStatus = async () => {
@@ -122,6 +123,82 @@ const Profile = () => {
       }
     } catch (err) {
       console.error("Error toggling connection:", err);
+    }
+  };
+
+  const handleViewPhoto = async (imageUrl, isAvatar) => {
+    if (!imageUrl || imageUrl.trim() === "") return;
+    
+    setLoading(true);
+    try {
+      const targetUserId = userId || auth.currentUser?.uid;
+      const contentText = isAvatar ? "updated their profile picture" : "updated their cover photo";
+      
+      const { data: existingPost, error: fetchError } = await supabase
+        .from("posts")
+        .select("*")
+        .eq("user_id", targetUserId)
+        .eq("content", contentText)
+        .eq("media_url", imageUrl)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+        
+      if (existingPost) {
+        setLoading(false);
+        
+        // Map user object into the post for Feed viewer compatibility
+        const formattedPost = {
+          ...existingPost,
+          author_id: existingPost.user_id,
+          user: {
+            name: userData?.full_name || "User",
+            username: userData?.username || "username",
+            profilePic: userData?.avatar_url && userData.avatar_url.trim() !== ""
+              ? { uri: userData.avatar_url }
+              : require("../../assets/images/default.png"),
+          },
+          image: existingPost.media_url ? { uri: existingPost.media_url } : null,
+          time: formatPostTime(existingPost.created_at)
+        };
+        
+        setActiveViewPost(formattedPost);
+      } else {
+        const { data: newPost, error: insertError } = await supabase
+          .from("posts")
+          .insert({
+            user_id: targetUserId,
+            content: contentText,
+            media_url: imageUrl,
+            media_type: "image",
+            created_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+          
+        setLoading(false);
+        if (newPost) {
+          // Map user object into the post for Feed viewer compatibility
+          const formattedPost = {
+            ...newPost,
+            author_id: newPost.user_id,
+            user: {
+              name: userData?.full_name || "User",
+              username: userData?.username || "username",
+              profilePic: userData?.avatar_url && userData.avatar_url.trim() !== ""
+                ? { uri: userData.avatar_url }
+                : require("../../assets/images/default.png"),
+            },
+            image: newPost.media_url ? { uri: newPost.media_url } : null,
+            time: formatPostTime(newPost.created_at)
+          };
+          
+          setActiveViewPost(formattedPost);
+        }
+      }
+    } catch (err) {
+      console.error("Error viewing photo post:", err);
+      setLoading(false);
     }
   };
 
@@ -288,6 +365,7 @@ const Profile = () => {
         content: post.content,
         time: formatPostTime(post.created_at),
         image: post.media_url ? { uri: post.media_url } : null,
+        media_type: post.media_type,
         repost_id: post.repost_id,
         original_post: post.original_post ? {
           id: post.original_post.id,
@@ -456,7 +534,10 @@ const Profile = () => {
             <>
               {/* HEADER */}
               <View style={styles.header}>
-                <View style={styles.banner}>
+                <Pressable
+                  style={styles.banner}
+                  onPress={() => handleViewPhoto(userData?.banner_url, false)}
+                >
                   <Image
                     source={
                       userData?.banner_url &&
@@ -466,9 +547,12 @@ const Profile = () => {
                     }
                     style={styles.bannerImg}
                   />
-                </View>
+                </Pressable>
 
-                <View style={styles.profileImageContainer}>
+                <Pressable
+                  style={styles.profileImageContainer}
+                  onPress={() => handleViewPhoto(userData?.avatar_url, true)}
+                >
                   <Image
                     source={
                       userData?.avatar_url &&
@@ -478,7 +562,7 @@ const Profile = () => {
                     }
                     style={styles.profImg}
                   />
-                </View>
+                </Pressable>
               </View>
 
               {/* DETAILS */}
@@ -596,7 +680,7 @@ const Profile = () => {
 
                   <View style={styles.stat}>
                     <Text style={styles.statNumber}>
-                      {userData?.posts_count || 0}
+                      {feeds.filter(post => post.image && post.media_type !== 'video').length}
                     </Text>
 
                     <Text style={styles.statText}>Photos</Text>
@@ -678,6 +762,14 @@ const Profile = () => {
           ) : null
         }
       />
+
+      {activeViewPost && (
+        <Feed
+          item={activeViewPost}
+          initialPhotoViewerVisible={true}
+          onClosePhotoViewer={() => setActiveViewPost(null)}
+        />
+      )}
     </ScreenWrapper>
   );
 };
@@ -844,7 +936,7 @@ const styles = StyleSheet.create({
 
   banner: {
     width: "100%",
-    height: verticalScale(220),
+    height: verticalScale(160),
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     overflow: "hidden",
@@ -866,9 +958,10 @@ const styles = StyleSheet.create({
 
   profImg: {
     width: scale(100),
-    height: verticalScale(100),
+    height: scale(100),
     borderRadius: scale(50),
     borderWidth: 4,
     borderColor: "#fff",
+    resizeMode: "cover",
   },
 });

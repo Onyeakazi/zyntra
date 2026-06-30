@@ -33,6 +33,8 @@ const EditProfile = () => {
   const [education, setEducation] = useState("");
   const [avatar, setAvatar] = useState(null);
   const [banner, setBanner] = useState(null);
+  const [initialAvatar, setInitialAvatar] = useState(null);
+  const [initialBanner, setInitialBanner] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -71,6 +73,8 @@ const EditProfile = () => {
       setEducation(data?.education || "");
       setAvatar(data?.avatar_url || null);
       setBanner(data?.banner_url || null);
+      setInitialAvatar(data?.avatar_url || null);
+      setInitialBanner(data?.banner_url || null);
 
       console.log("User data loaded");
     } catch (err) {
@@ -102,8 +106,7 @@ const EditProfile = () => {
         try {
             const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            aspect: [16, 9],
+            allowsEditing: false,
             quality: 0.8,
             });
 
@@ -215,6 +218,27 @@ const EditProfile = () => {
 
             if (updateError) {
                 throw updateError;
+            }
+
+            // Publish update posts to user feed (Facebook parity)
+            if (avatarUrl !== initialAvatar && avatarUrl) {
+                await supabase.from("posts").insert({
+                    user_id: user.uid,
+                    content: "updated their profile picture",
+                    media_url: avatarUrl,
+                    media_type: "image",
+                    created_at: new Date().toISOString()
+                });
+            }
+
+            if (bannerUrl !== initialBanner && bannerUrl) {
+                await supabase.from("posts").insert({
+                    user_id: user.uid,
+                    content: "updated their cover photo",
+                    media_url: bannerUrl,
+                    media_type: "image",
+                    created_at: new Date().toISOString()
+                });
             }
 
             alert("Profile updated successfully!");
@@ -457,7 +481,7 @@ const styles = StyleSheet.create({
 
   bannerImg: {
     width: "100%",
-    height: verticalScale(220),
+    height: verticalScale(160),
     borderRadius: scale(25),
     resizeMode: "cover",
   },
@@ -490,6 +514,7 @@ const styles = StyleSheet.create({
     borderRadius: scale(55),
     borderWidth: 5,
     borderColor: "#fff",
+    resizeMode: "cover",
   },
 
   profileEditBtn: {

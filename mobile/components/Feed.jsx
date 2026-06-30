@@ -1,4 +1,4 @@
-import { Image, StyleSheet, Text, TouchableOpacity, View, ScrollView, Dimensions, Pressable, Alert, Share as RNShare, Modal, PanResponder, Animated } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View, ScrollView, Dimensions, Pressable, Alert, Share as RNShare, Modal, PanResponder, Animated, ActivityIndicator, KeyboardAvoidingView, TextInput, Platform } from 'react-native';
 import Like from "../assets/vectors/like.svg";
 import Message from "../assets/vectors/message.svg";
 import Share from "../assets/vectors/share.svg";
@@ -11,6 +11,7 @@ import { auth } from '../config/firebase';
 import { supabase } from '../lib/supabase';
 import { renderTextWithMentions } from '../utils/mentions';
 import TYPOGRAPHY from '../constants/typography';
+import { acceptConnectionInDB } from '../utils/connectionHelpers';
 
 // Custom inline SVG icons for visual excellence
 const EditIcon = ({ color = "#333", size = 16 }) => (
@@ -72,6 +73,42 @@ const ShareIconInline = ({ color = "#1F2937", size = 20 }) => (
     <Line x1="12" y1="2" x2="12" y2="15" />
   </Svg>
 );
+
+const AutoHeightImage = ({ source, width, style }) => {
+  const [aspectRatio, setAspectRatio] = useState(null);
+
+  useEffect(() => {
+    if (source && source.uri) {
+      Image.getSize(
+        source.uri,
+        (w, h) => {
+          if (w && h) {
+            let ratio = w / h;
+            // Cap aspect ratio like Facebook to prevent too vertical or too horizontal images
+            if (ratio < 0.75) ratio = 0.75;
+            if (ratio > 1.91) ratio = 1.91;
+            setAspectRatio(ratio);
+          }
+        },
+        (error) => {
+          console.log("Failed to get image size:", error);
+        }
+      );
+    }
+  }, [source]);
+
+  const computedStyle = aspectRatio
+    ? { width: width, height: undefined, aspectRatio: aspectRatio, borderRadius: 10, marginTop: 10 }
+    : { width: width, height: 200, borderRadius: 10, marginTop: 10 };
+
+  return (
+    <Image
+      source={source}
+      style={[style, computedStyle]}
+      resizeMode="cover"
+    />
+  );
+};
 
 const ZoomableImage = ({ source, style }) => {
   const scale = useRef(new Animated.Value(1)).current;
@@ -251,7 +288,7 @@ const ZoomableImage = ({ source, style }) => {
   );
 };
 
-const Feed = ({ item }) => {
+const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer }) => {
   const targetPostId = item.id;
 
   const [expanded, setExpanded] = useState(false);
@@ -261,9 +298,113 @@ const Feed = ({ item }) => {
   const [showShareSheet, setShowShareSheet] = useState(false);
 
   // Photo viewer states
-  const [isPhotoViewerVisible, setIsPhotoViewerVisible] = useState(false);
+  const [isPhotoViewerVisible, setIsPhotoViewerVisible] = useState(initialPhotoViewerVisible);
   const [photoViewerIndex, setPhotoViewerIndex] = useState(0);
   const [showPhotoViewerOptions, setShowPhotoViewerOptions] = useState(false);
+
+  // Comments bottom sheet states inside photo viewer
+  const [showCommentsSheet, setShowCommentsSheet] = useState(false);
+  const [commentsList, setCommentsList] = useState([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [newCommentText, setNewCommentText] = useState("");
+
+  const sheetAnim = useRef(new Animated.Value(Dimensions.get("window").height)).current;
+
+  useEffect(() => {
+    setIsPhotoViewerVisible(initialPhotoViewerVisible);
+  }, [initialPhotoViewerVisible]);
+
+  useEffect(() => {
+    if (showCommentsSheet) {
+      Animated.spring(sheetAnim, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 50,
+        friction: 8
+      }).start();
+      fetchCommentsForSheet();
+    } else {
+      Animated.timing(sheetAnim, {
+        toValue: Dimensions.get("window").height,
+        duration: 250,
+        useNativeDriver: true
+      }).start();
+    }
+  }, [showCommentsSheet]);
+
+  const fetchCommentsForSheet = async () => {
+    if (!targetPostId) return;
+    setCommentsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("post_comments")
+        .select(`
+          id,
+          post_id,
+          user_id,
+          content,
+          created_at,
+          users (
+            full_name,
+            avatar_url,
+            username
+          )
+        `)
+        .eq("post_id", targetPostId)
+        .order("created_at", { ascending: true });
+
+      if (!error && data) {
+        setCommentsList(data);
+      }
+    } catch (err) {
+      console.error("Error fetching comments for sheet:", err);
+    } finally {
+      setCommentsLoading(false);
+    }
+  };
+
+  const handleAddCommentForSheet = async () => {
+    if (!newCommentText.trim() || !currentUserId) return;
+    try {
+      const { data, error } = await supabase
+        .from("post_comments")
+        .insert({
+          post_id: targetPostId,
+          user_id: currentUserId,
+          content: newCommentText.trim(),
+          created_at: new Date().toISOString()
+        })
+        .select(`
+          id,
+          post_id,
+          user_id,
+          content,
+          created_at,
+          users (
+            full_name,
+            avatar_url,
+            username
+          )
+        `)
+        .single();
+
+      if (!error && data) {
+        setCommentsList(prev => [...prev, data]);
+        setNewCommentText("");
+        setCommentsCount(prev => prev + 1);
+      }
+    } catch (err) {
+      console.error("Error adding comment in sheet:", err);
+    }
+  };
+
+  const handleClosePhotoViewer = () => {
+    setIsPhotoViewerVisible(false);
+    setShowCommentsSheet(false);
+    if (onClosePhotoViewer) {
+      onClosePhotoViewer();
+    }
+  };
 
   // Reaction and interaction states
   const [myReaction, setMyReaction] = useState(null);
@@ -274,6 +415,10 @@ const Feed = ({ item }) => {
   const [sharesCount, setSharesCount] = useState(0);
   const [isSaved, setIsSaved] = useState(false);
   const [showReactionsPanel, setShowReactionsPanel] = useState(false);
+
+  // Connection states
+  const [connectionStatus, setConnectionStatus] = useState(null); // null, 'pending_sent', 'pending_received', 'accepted'
+  const [connectionLoading, setConnectionLoading] = useState(false);
 
   const cardWidth = Dimensions.get("window").width - 60;
   const currentUserId = auth.currentUser?.uid;
@@ -393,6 +538,80 @@ const Feed = ({ item }) => {
     }
   };
 
+  const fetchConnectionStatus = async () => {
+    if (!currentUserId || !item.author_id || isAuthor) {
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from("connections")
+        .select("*")
+        .or(`and(user_id.eq.${currentUserId},friend_id.eq.${item.author_id}),and(user_id.eq.${item.author_id},friend_id.eq.${currentUserId})`)
+        .maybeSingle();
+
+      if (!error && data) {
+        if (data.status === 'accepted') {
+          setConnectionStatus('accepted');
+        } else if (data.status === 'pending') {
+          if (data.user_id === currentUserId) {
+            setConnectionStatus('pending_sent');
+          } else {
+            setConnectionStatus('pending_received');
+          }
+        }
+      } else {
+        setConnectionStatus(null);
+      }
+    } catch (err) {
+      console.error("Error fetching connection status in Feed:", err);
+    }
+  };
+
+  const handleToggleConnection = async () => {
+    if (!currentUserId || !item.author_id || connectionLoading) return;
+    setConnectionLoading(true);
+    try {
+      if (connectionStatus === null) {
+        // Send request
+        const { error } = await supabase
+          .from("connections")
+          .insert({
+            user_id: currentUserId,
+            friend_id: item.author_id,
+            status: "pending",
+          });
+        if (!error) {
+          setConnectionStatus('pending_sent');
+          Alert.alert("Request Sent", `Connection request sent to ${item.user.name}!`);
+        } else {
+          throw error;
+        }
+      } else if (connectionStatus === 'pending_sent') {
+        // Cancel request
+        const { error } = await supabase
+          .from("connections")
+          .delete()
+          .eq("user_id", currentUserId)
+          .eq("friend_id", item.author_id);
+        if (!error) {
+          setConnectionStatus(null);
+        } else {
+          throw error;
+        }
+      } else if (connectionStatus === 'pending_received') {
+        // Accept incoming request
+        await acceptConnectionInDB(item.author_id, currentUserId);
+        setConnectionStatus('accepted');
+        Alert.alert("Success", `You are now connected with ${item.user.name}!`);
+      }
+    } catch (err) {
+      console.error("Error toggling connection in Feed component:", err);
+      Alert.alert("Error", "Could not update connection status.");
+    } finally {
+      setConnectionLoading(false);
+    }
+  };
+
   // Fetch interactions (reactions, comments, saved status)
   useEffect(() => {
     let active = true;
@@ -434,6 +653,9 @@ const Feed = ({ item }) => {
         if (active) {
           setIsSaved(!!saveDoc);
         }
+
+        // 4. Fetch connection status
+        await fetchConnectionStatus();
       } catch (err) {
         console.error("Error loading interactions:", err);
       }
@@ -471,6 +693,19 @@ const Feed = ({ item }) => {
         { event: '*', schema: 'public', table: 'post_shares', filter: `post_id=eq.${targetPostId}` },
         () => {
           fetchSharesCount();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'connections' },
+        (payload) => {
+          const record = payload.new || payload.old;
+          if (record && (
+            (record.user_id === currentUserId && record.friend_id === item.author_id) ||
+            (record.user_id === item.author_id && record.friend_id === currentUserId)
+          )) {
+            fetchConnectionStatus();
+          }
         }
       )
       .subscribe();
@@ -720,6 +955,8 @@ const Feed = ({ item }) => {
     Alert.alert("Reported", "Thank you. This post has been reported for review.");
   };
 
+  const isUpdatePost = item.content === "updated their profile picture" || item.content === "updated their cover photo";
+
   return (
     <>
       <View style={styles.container}>
@@ -733,20 +970,51 @@ const Feed = ({ item }) => {
             />
 
             <View style={styles.feedInfo}>
-              <Text style={styles.name}>
-                {item.user.name}
-                {item.repost_id ? (
-                  <Text style={styles.sharedText}> shared a post</Text>
-                ) : null}
-              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', width: cardWidth - 50 }}>
+                <Text style={styles.name}>
+                  {item.user.name}
+                  {item.repost_id ? (
+                    <Text style={styles.sharedText}> shared a post</Text>
+                  ) : null}
+                </Text>
+                {isUpdatePost && (
+                  <Text style={styles.feedUpdateText}>
+                    {" "}{item.content}
+                  </Text>
+                )}
+              </View>
               <Text style={styles.time}>{item.time}</Text>
             </View>
           </Pressable>
 
-          {/* Option Action Menu Dots */}
-          <Pressable onPress={() => setShowOptions(!showOptions)} style={styles.moreButton}>
-            <Text style={styles.moreText}>•••</Text>
-          </Pressable>
+          <View style={styles.headerRightActions}>
+            {!isAuthor && connectionStatus !== 'accepted' && (
+              <Pressable
+                style={[
+                  styles.miniConnectBtn,
+                  connectionStatus === 'pending_sent' ? styles.miniConnectedBtn : styles.miniConnectBtnSolid
+                ]}
+                onPress={handleToggleConnection}
+                disabled={connectionLoading}
+              >
+                {connectionLoading ? (
+                  <ActivityIndicator size="small" color={connectionStatus === 'pending_sent' ? "#6B7280" : "#FFFFFF"} />
+                ) : (
+                  <Text style={[
+                    styles.miniConnectBtnText,
+                    connectionStatus === 'pending_sent' ? styles.miniConnectedBtnText : styles.miniConnectBtnTextSolid
+                  ]}>
+                    {connectionStatus === 'pending_sent' ? "Requested" : connectionStatus === 'pending_received' ? "Accept" : "Connect"}
+                  </Text>
+                )}
+              </Pressable>
+            )}
+
+            {/* Option Action Menu Dots */}
+            <Pressable onPress={() => setShowOptions(!showOptions)} style={styles.moreButton}>
+              <Text style={styles.moreText}>•••</Text>
+            </Pressable>
+          </View>
 
           {/* Full screen overlay to catch click away and close options */}
           {showOptions && (
@@ -816,7 +1084,7 @@ const Feed = ({ item }) => {
         {/* Content */}
         <View style={styles.feedContent}>
 
-          {item.content ? (
+          {item.content && !isUpdatePost ? (
             <Text
               numberOfLines={expanded ? undefined : 3}
               style={styles.contentText}
@@ -859,10 +1127,10 @@ const Feed = ({ item }) => {
                   setPhotoViewerIndex(0);
                   setIsPhotoViewerVisible(true);
                 }}>
-                  <Image
+                  <AutoHeightImage
                     source={images[0]}
-                    style={[styles.feedImage, { width: cardWidth }]}
-                    resizeMode="cover"
+                    width={cardWidth}
+                    style={styles.feedImage}
                   />
                 </Pressable>
               );
@@ -1183,18 +1451,18 @@ const Feed = ({ item }) => {
         </Pressable>
       </Modal>
 
-      {/* Immersive Zyntra Floating Card Photo Viewer */}
+      {/* Immersive Zyntra Card Photo Viewer */}
       <Modal
         visible={isPhotoViewerVisible}
         transparent={true}
         animationType="fade"
-        onRequestClose={() => setIsPhotoViewerVisible(false)}
+        onRequestClose={handleClosePhotoViewer}
       >
         <View style={styles.viewerBackdrop}>
           {/* Backdrop Close Trigger Sibling */}
           <Pressable
             style={StyleSheet.absoluteFillObject}
-            onPress={() => setIsPhotoViewerVisible(false)}
+            onPress={handleClosePhotoViewer}
           />
 
           {/* Centered Modal Card */}
@@ -1203,7 +1471,7 @@ const Feed = ({ item }) => {
             <View style={styles.viewerCardHeader}>
               <Pressable
                 onPress={() => {
-                  setIsPhotoViewerVisible(false);
+                  handleClosePhotoViewer();
                   navigateToProfile();
                 }}
                 style={styles.viewerUserBtn}
@@ -1213,7 +1481,14 @@ const Feed = ({ item }) => {
                   style={styles.viewerAvatar}
                 />
                 <View style={styles.viewerUserText}>
-                  <Text style={styles.viewerName}>{item.user.name}</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <Text style={styles.viewerName}>{item.user.name}</Text>
+                    {isUpdatePost && (
+                      <Text style={styles.feedUpdateText}>
+                        {" "}{item.content}
+                      </Text>
+                    )}
+                  </View>
                   <Text style={styles.viewerTime}>{item.time}</Text>
                 </View>
               </Pressable>
@@ -1227,7 +1502,7 @@ const Feed = ({ item }) => {
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  onPress={() => setIsPhotoViewerVisible(false)}
+                  onPress={handleClosePhotoViewer}
                   style={[styles.viewerHeaderActionBtn, { backgroundColor: '#E5E7EB' }]}
                 >
                   <Text style={[styles.viewerHeaderActionText, { color: '#4B5563', fontSize: 13 }]}>✕</Text>
@@ -1243,7 +1518,7 @@ const Feed = ({ item }) => {
                     <TouchableOpacity
                       onPress={() => {
                         setShowPhotoViewerOptions(false);
-                        setIsPhotoViewerVisible(false);
+                        handleClosePhotoViewer();
                         handleEditPost();
                       }}
                       style={styles.optionItem}
@@ -1300,7 +1575,7 @@ const Feed = ({ item }) => {
                     <TouchableOpacity
                       onPress={() => {
                         setShowPhotoViewerOptions(false);
-                        setIsPhotoViewerVisible(false);
+                        handleClosePhotoViewer();
                         handleDeletePost();
                       }}
                       style={styles.optionItem}
@@ -1356,7 +1631,7 @@ const Feed = ({ item }) => {
             {/* 3. Bottom Content & Actions (Light theme) */}
             <View style={styles.viewerCardFooter}>
               {/* Post Description Content (ScrollView in case it is long) */}
-              {item.content ? (
+              {item.content && !isUpdatePost ? (
                 <ScrollView style={styles.viewerContentScroll} maxHeight={80} showsVerticalScrollIndicator={false}>
                   <Text style={styles.viewerContentText}>
                     {renderTextWithMentions(item.content, styles.mentionLink, styles.viewerContentText)}
@@ -1421,10 +1696,7 @@ const Feed = ({ item }) => {
 
                 {/* Comment Button */}
                 <Pressable
-                  onPress={() => {
-                    setIsPhotoViewerVisible(false);
-                    navigateToComments();
-                  }}
+                  onPress={() => setShowCommentsSheet(true)}
                   style={styles.viewerActionBtn}
                 >
                   <Message width={20} height={20} color="#6B7280" />
@@ -1441,6 +1713,85 @@ const Feed = ({ item }) => {
                 </Pressable>
               </View>
             </View>
+
+            {/* Floating Reactions Option Panel inside card footer context */}
+            {showReactionsPanel && (
+              <View style={[styles.reactionsPanel, { bottom: 50, left: 10 }]}>
+                {['like', 'love', 'care', 'haha', 'wow', 'sad', 'angry'].map((type) => (
+                  <Pressable
+                    key={type}
+                    onPress={() => handleSelectReaction(type)}
+                    style={styles.reactionPanelEmojiWrapper}
+                  >
+                    <Text style={styles.reactionPanelEmoji}>
+                      {getReactionEmoji(type)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+
+            {/* Comments Bottom Sheet Overlay */}
+            {showCommentsSheet && (
+              <Animated.View
+                style={[
+                  styles.commentsSheet,
+                  { transform: [{ translateY: sheetAnim }] }
+                ]}
+              >
+                <View style={styles.sheetHeader}>
+                  <Text style={styles.sheetTitle}>Comments</Text>
+                  <TouchableOpacity onPress={() => setShowCommentsSheet(false)} style={styles.sheetCloseBtn}>
+                    <Text style={styles.sheetCloseText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {commentsLoading ? (
+                  <ActivityIndicator size="small" color="#5096F1" style={{ marginVertical: 20 }} />
+                ) : (
+                  <ScrollView contentContainerStyle={{ paddingBottom: 20 }} style={styles.sheetCommentsScroll}>
+                    {commentsList.length === 0 ? (
+                      <Text style={styles.noCommentsText}>No comments yet. Be the first to comment!</Text>
+                    ) : (
+                      commentsList.map((comment) => (
+                        <View key={comment.id} style={styles.sheetCommentItem}>
+                          <Image
+                            source={
+                              comment.users?.avatar_url && comment.users.avatar_url.trim() !== ""
+                                ? { uri: comment.users.avatar_url }
+                                : require("../assets/images/default.png")
+                            }
+                            style={styles.sheetCommentAvatar}
+                          />
+                          <View style={styles.sheetCommentContent}>
+                            <Text style={styles.sheetCommentAuthor}>{comment.users?.full_name || "User"}</Text>
+                            <Text style={styles.sheetCommentText}>{comment.content}</Text>
+                          </View>
+                        </View>
+                      ))
+                    )}
+                  </ScrollView>
+                )}
+
+                <KeyboardAvoidingView
+                  behavior={Platform.OS === "ios" ? "padding" : "height"}
+                  keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
+                >
+                  <View style={styles.sheetInputRow}>
+                    <TextInput
+                      placeholder="Write a comment..."
+                      value={newCommentText}
+                      onChangeText={setNewCommentText}
+                      style={styles.sheetInput}
+                      placeholderTextColor="#999"
+                    />
+                    <TouchableOpacity onPress={handleAddCommentForSheet} style={styles.sheetSendBtn}>
+                      <Text style={styles.sheetSendBtnText}>Post</Text>
+                    </TouchableOpacity>
+                  </View>
+                </KeyboardAvoidingView>
+              </Animated.View>
+            )}
           </View>
         </View>
       </Modal>
@@ -1484,6 +1835,45 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  miniConnectBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 28,
+  },
+
+  miniConnectBtnSolid: {
+    backgroundColor: '#5096F1',
+  },
+
+  miniConnectedBtn: {
+    backgroundColor: '#E5E7EB',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+
+  miniConnectBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: TYPOGRAPHY.semiBold,
+  },
+
+  miniConnectBtnTextSolid: {
+    color: '#FFFFFF',
+  },
+
+  miniConnectedBtnText: {
+    color: '#4B5563',
+  },
+
   optionsDropdown: {
     position: "absolute",
     top: 35,
@@ -1525,6 +1915,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
+    resizeMode: "cover",
   },
 
   feedInfo: {
@@ -1785,6 +2176,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
+    resizeMode: "cover",
   },
 
   quoteUserInfo: {
@@ -2009,6 +2401,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    resizeMode: "cover",
   },
   viewerUserText: {
     justifyContent: 'center',
@@ -2067,5 +2460,248 @@ const styles = StyleSheet.create({
   viewerActionBtnText: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  commentsSheet: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    height: "60%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 10,
+    zIndex: 10000,
+    paddingTop: 10,
+  },
+  sheetHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 15,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  sheetTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#111111",
+  },
+  sheetCloseBtn: {
+    padding: 5,
+  },
+  sheetCloseText: {
+    fontSize: 16,
+    color: "#6B7280",
+    fontWeight: "bold",
+  },
+  sheetCommentsScroll: {
+    flex: 1,
+    paddingHorizontal: 15,
+    marginTop: 10,
+  },
+  noCommentsText: {
+    textAlign: "center",
+    color: "#9CA3AF",
+    marginTop: 30,
+    fontSize: 14,
+  },
+  sheetCommentItem: {
+    flexDirection: "row",
+    marginBottom: 15,
+    alignItems: "flex-start",
+  },
+  sheetCommentAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 10,
+    resizeMode: "cover",
+  },
+  sheetCommentContent: {
+    flex: 1,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    padding: 10,
+  },
+  sheetCommentAuthor: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#111111",
+    marginBottom: 3,
+  },
+  sheetCommentText: {
+    fontSize: 13,
+    color: "#374151",
+    lineHeight: 17,
+  },
+  sheetInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
+  },
+  sheetInput: {
+    flex: 1,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: "#1F2937",
+    marginRight: 10,
+  },
+  sheetSendBtn: {
+    backgroundColor: "#5096F1",
+    borderRadius: 15,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+  },
+  sheetSendBtnText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  fullViewerBackdrop: {
+    flex: 1,
+    backgroundColor: "#0B0F19",
+  },
+  feedUpdateText: {
+    fontWeight: "normal",
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  fullViewerUpdateText: {
+    fontWeight: "normal",
+    fontSize: 13,
+    color: "#93C5FD",
+  },
+  fullViewerHeader: {
+    position: "absolute",
+    top: Platform.OS === 'ios' ? 60 : 40,
+    left: 15,
+    right: 15,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    zIndex: 100,
+  },
+  fullViewerName: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  fullViewerTime: {
+    color: "#CCCCCC",
+    fontSize: 11,
+  },
+  fullViewerHeaderActionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  fullViewerHeaderActionText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  fullViewerOptionsDropdown: {
+    position: "absolute",
+    top: Platform.OS === 'ios' ? 105 : 85,
+    right: 15,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    paddingVertical: 5,
+    width: 150,
+    zIndex: 1001,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  fullViewerImageContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#000000",
+  },
+  fullViewerImage: {
+    width: "100%",
+    height: "100%",
+  },
+  fullViewerFooter: {
+    position: "absolute",
+    bottom: Platform.OS === 'ios' ? 40 : 25,
+    left: 15,
+    right: 15,
+    zIndex: 100,
+  },
+  fullViewerContentText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 10,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: -1, height: 1 },
+    textShadowRadius: 3
+  },
+  fullViewerInfoBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "rgba(255, 255, 255, 0.15)",
+    borderTopWidth: 0.5,
+    borderTopColor: "rgba(255, 255, 255, 0.1)",
+    marginBottom: 12,
+  },
+  fullViewerInfoReactionsText: {
+    fontSize: 12,
+    color: "#DDDDDD",
+    fontWeight: "500",
+  },
+  fullViewerInfoCommentsText: {
+    fontSize: 12,
+    color: "#DDDDDD",
+    fontWeight: "500",
+  },
+  fullViewerActionsRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    gap: 10,
+  },
+  fullViewerActionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    borderRadius: 20,
+    flex: 1,
+    justifyContent: "center",
+    borderWidth: 0.5,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  fullViewerActionBtnText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
 });

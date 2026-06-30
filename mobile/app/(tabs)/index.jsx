@@ -564,45 +564,67 @@ export default function Index() {
 
       console.log("Fetching home feed posts...");
       const { data, error } = await supabase
-        .from("home_feed")
-        .select("*")
-        .eq("viewer_id", user.uid)
+        .from("posts")
+        .select(`
+          *,
+          user:user_id (
+            id,
+            full_name,
+            avatar_url,
+            username
+          ),
+          original_post:repost_id (
+            id,
+            user_id,
+            content,
+            media_url,
+            media_type,
+            created_at,
+            user:user_id (
+              id,
+              full_name,
+              avatar_url,
+              username
+            )
+          )
+        `)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
       console.log("Feed fetched successfully, count:", data?.length || 0);
 
-      // Map the database View columns to feed item properties
+      // Map the database posts table columns to feed item properties
       const formattedFeeds = (data || []).map((post) => ({
-        id: post.post_id.toString(),
-        author_id: post.author_id,
+        id: post.id.toString(),
+        author_id: post.user_id,
         user: {
-          name: post.author_name || "User",
-          username: post.author_username || "username",
+          name: post.user?.full_name || "User",
+          username: post.user?.username || "username",
           profilePic:
-            post.author_avatar && post.author_avatar.trim() !== ""
-              ? { uri: post.author_avatar }
+            post.user?.avatar_url && post.user.avatar_url.trim() !== ""
+              ? { uri: post.user.avatar_url }
               : require("../../assets/images/prof.jpeg"),
         },
         content: post.content,
         time: formatPostTime(post.created_at),
         image: post.media_url ? { uri: post.media_url } : null,
+        media_type: post.media_type,
         repost_id: post.repost_id,
-        original_post: post.repost_id ? {
-          id: post.repost_id,
-          author_id: post.original_author_id,
-          content: post.original_content,
-          image: post.original_media_url ? { uri: post.original_media_url } : null,
-          media_type: post.original_media_type,
-          created_at: post.original_created_at,
-          time: formatPostTime(post.original_created_at),
+        original_post: post.repost_id && post.original_post ? {
+          id: post.original_post.id,
+          author_id: post.original_post.user_id,
+          content: post.original_post.content,
+          image: post.original_post.media_url ? { uri: post.original_post.media_url } : null,
+          media_type: post.original_post.media_type,
+          created_at: post.original_post.created_at,
+          time: formatPostTime(post.original_post.created_at),
           user: {
-            name: post.original_author_name || "User",
-            username: post.original_author_username || "username",
+            name: post.original_post.user?.full_name || "User",
+            username: post.original_post.user?.username || "username",
             profilePic:
-              post.original_author_avatar && post.original_author_avatar.trim() !== ""
-                ? { uri: post.original_author_avatar }
+              post.original_post.user?.avatar_url && post.original_post.user.avatar_url.trim() !== ""
+                ? { uri: post.original_post.user.avatar_url }
                 : require("../../assets/images/default.png"),
           }
         } : null,

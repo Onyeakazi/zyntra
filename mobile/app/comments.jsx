@@ -845,6 +845,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     borderColor: "#E5E7EB",
+    resizeMode: "cover",
   },
 
   commentBubbleContainer: {
@@ -1039,6 +1040,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: "#E5E7EB",
+    resizeMode: "cover",
   },
 
   replyMention: {
@@ -1082,6 +1084,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    resizeMode: "cover",
   },
 
   suggestionTextContainer: {
@@ -1190,6 +1193,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     borderColor: "#E5E7EB",
+    resizeMode: "cover",
   },
 
   inputContainer: {
