@@ -253,6 +253,17 @@ const NotificationScreen = () => {
               <>{renderSender()} reacted to the post you reshared</>
             );
           }
+
+          const isAvatar = item.posts?.content === "updated their profile picture";
+          const isBanner = item.posts?.content === "updated their cover photo";
+
+          if (isAvatar) {
+            return <>{renderSender()} reacted to your profile picture</>;
+          }
+          if (isBanner) {
+            return <>{renderSender()} reacted to your cover photo</>;
+          }
+
           const preview = item.posts?.content 
             ? ` "${item.posts.content.substring(0, 25)}${item.posts.content.length > 25 ? '...' : ''}"` 
             : "";
@@ -273,6 +284,25 @@ const NotificationScreen = () => {
             <>{renderSender()} commented on the post you reshared</>
           );
         }
+
+        const isCommentAvatar = item.posts?.content === "updated their profile picture";
+        const isCommentBanner = item.posts?.content === "updated their cover photo";
+
+        if (isCommentAvatar) {
+          return commentPreview ? (
+            <>{renderSender()} commented on your profile picture:{commentPreview}</>
+          ) : (
+            <>{renderSender()} commented on your profile picture</>
+          );
+        }
+        if (isCommentBanner) {
+          return commentPreview ? (
+            <>{renderSender()} commented on your cover photo:{commentPreview}</>
+          ) : (
+            <>{renderSender()} commented on your cover photo</>
+          );
+        }
+
         return commentPreview ? (
           <>{renderSender()} commented on your post:{commentPreview}</>
         ) : (

@@ -22,6 +22,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { formatPostTime } from '../utils/timeFormat'
 import { supabase } from '../lib/supabase'
 import { auth } from '../config/firebase'
+import { Video, ResizeMode } from 'expo-av'
 
 const StoryViewer = ({
   visible,
@@ -407,16 +408,19 @@ const StoryViewer = ({
               <Text style={styles.textStoryContent}>{activeStory.caption}</Text>
             </View>
           ) : activeStory.media_type === 'video' ? (
-            // Video Story mockup Layout
+            // Video Story Player Layout
             <View style={styles.mediaContainer}>
-              <Image
+              <Video
                 source={{ uri: activeStory.media_url }}
+                rate={1.0}
+                volume={1.0}
+                isMuted={false}
+                resizeMode={ResizeMode.CONTAIN}
+                shouldPlay={visible}
+                useNativeControls={false}
+                isLooping={false}
                 style={styles.mediaImage}
-                resizeMode="contain"
               />
-              <View style={styles.videoPlayIndicator}>
-                <Ionicons name="play" size={48} color="rgba(255,255,255,0.7)" />
-              </View>
             </View>
           ) : (
             // Photo Story Layout

@@ -121,10 +121,11 @@ const Login = () => {
                 .single();
 
             if (checkError || !existingUser) {
-                // Generate a clean and unique username
-                const baseUsername = firebaseUser.email 
-                    ? firebaseUser.email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase() 
-                    : "user";
+                // Generate a clean and unique username from full name
+                const nameSource = firebaseUser.displayName || firebaseUser.email || "user";
+                const baseUsername = nameSource.includes('@')
+                    ? nameSource.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
+                    : nameSource.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
                 const username = `${baseUsername}${Math.floor(100 + Math.random() * 900)}`;
 
                 const { error: supabaseError } = await supabase
@@ -244,8 +245,10 @@ const Login = () => {
                 displayName: signupData.fullName,
             });
 
-            // Generate unique username for Supabase
-            const baseUsername = signupData.email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+            // Generate unique username for Supabase from full name
+            const baseUsername = signupData.fullName
+                ? signupData.fullName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
+                : signupData.email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
             const username = `${baseUsername}${Math.floor(100 + Math.random() * 900)}`;
 
             // Create Supabase User Profile

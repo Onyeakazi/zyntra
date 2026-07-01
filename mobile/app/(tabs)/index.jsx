@@ -10,7 +10,7 @@ import TYPOGRAPHY from "../../constants/typography";
 import Story from "../../components/Story";
 import Feed from "../../components/Feed";
 import { moderateScale, scale, verticalScale } from "../../utils/scale";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "../../lib/supabase";
 import { auth } from "../../config/firebase";
 import { router } from "expo-router";
@@ -49,6 +49,19 @@ export default function Index() {
   const [selectedStoryMediaType, setSelectedStoryMediaType] = useState("image"); // "image", "video", "text"
   const [isStorySharing, setIsStorySharing] = useState(false);
   const [activeStoryGroupIndex, setActiveStoryGroupIndex] = useState(0);
+
+  // Viewability configurations for pausing scroll-past videos
+  const [activeViewablePostId, setActiveViewablePostId] = useState(null);
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 70,
+  }).current;
+
+  const onViewableItemsChanged = useRef(({ viewableItems }) => {
+    if (viewableItems && viewableItems.length > 0) {
+      setActiveViewablePostId(viewableItems[0].item.id);
+    }
+  }).current;
 
   const checkStoryViewMilestones = useCallback(async () => {
     const user = auth.currentUser;
@@ -972,7 +985,14 @@ export default function Index() {
       <FlatList
         data={filteredFeeds}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <Feed item={item} />}
+        renderItem={({ item }) => (
+          <Feed 
+            item={item} 
+            activePostId={activeViewablePostId} 
+          />
+        )}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={Header()}
         contentContainerStyle={{ paddingHorizontal: 15, paddingBottom: 100 }}

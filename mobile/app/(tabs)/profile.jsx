@@ -6,7 +6,14 @@ import {
   Text,
   View,
   ActivityIndicator,
+  Modal,
+  TouchableOpacity,
+  ScrollView,
+  Dimensions,
+  Alert,
+  SafeAreaView,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import ScreenWrapper from "../../components/ScreenWrapper";
@@ -21,7 +28,7 @@ import Address from "../../assets/vectors/address.svg";
 import Education from "../../assets/vectors/education.svg";
 import Phone from "../../assets/vectors/phone.svg";
 import COLORS from "../../constants/colors";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import Feed from "../../components/Feed";
 import DetailsCard from "../../components/DetailsCard";
 import Button from "../../components/Button";
@@ -47,6 +54,28 @@ const Profile = () => {
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const [activeViewPost, setActiveViewPost] = useState(null);
+
+  // Viewability configurations for pausing scroll-past videos
+  const [activeViewablePostId, setActiveViewablePostId] = useState(null);
+
+  // Settings menu and album history states
+  const [isMenuVisible, setIsMenuVisible] = useState(false);
+  const [currentMenuView, setCurrentMenuView] = useState("menu"); // "menu", "folders", "grid"
+  const [selectedFolder, setSelectedFolder] = useState("avatar"); // "avatar", "banner"
+  const [historyPhotos, setHistoryPhotos] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [selectedPreviewPhoto, setSelectedPreviewPhoto] = useState(null);
+  const [isOptionsMenuVisible, setIsOptionsMenuVisible] = useState(false);
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 70,
+  }).current;
+
+  const onViewableItemsChanged = useRef(({ viewableItems }) => {
+    if (viewableItems && viewableItems.length > 0) {
+      setActiveViewablePostId(viewableItems[0].item.id);
+    }
+  }).current;
 
   // Fetch connection status if not own profile
   const fetchConnectionStatus = async () => {
@@ -196,6 +225,8 @@ const Profile = () => {
           setActiveViewPost(formattedPost);
         }
       }
+
+
     } catch (err) {
       console.error("Error viewing photo post:", err);
       setLoading(false);
@@ -408,6 +439,124 @@ const Profile = () => {
     }
   };
 
+  const fetchPhotoHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const targetUserId = userId || auth.currentUser?.uid;
+      if (!targetUserId) return;
+
+      const { data, error } = await supabase
+        .from("posts")
+        .select("id, media_url, media_type, content, created_at")
+        .eq("user_id", targetUserId)
+        .eq("media_type", "image")
+        .not("media_url", "is", null)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setHistoryPhotos(data || []);
+    } catch (err) {
+      console.error("Error fetching photo history:", err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const handleSelectPastPhoto = async (pastPhotoUrl, isAvatar) => {
+    try {
+      const targetUserId = auth.currentUser?.uid;
+      if (!targetUserId) return;
+
+      setLoading(true);
+
+      const column = isAvatar ? "avatar_url" : "banner_url";
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({ [column]: pastPhotoUrl })
+        .eq("id", targetUserId);
+
+      if (updateError) throw updateError;
+
+      const contentText = isAvatar ? "updated their profile picture" : "updated their cover photo";
+      const { error: postError } = await supabase
+        .from("posts")
+        .insert({
+          user_id: targetUserId,
+          content: contentText,
+          media_url: pastPhotoUrl,
+          media_type: "image"
+        });
+
+      if (postError) throw postError;
+
+      Alert.alert("Success", `Your ${isAvatar ? "profile picture" : "cover photo"} has been updated successfully.`);
+      setSelectedPreviewPhoto(null);
+      setCurrentMenuView("menu");
+      setIsMenuVisible(false);
+      fetchUserData();
+      if (onProfileImageUpdated) onProfileImageUpdated();
+    } catch (err) {
+      console.error("Error setting past photo:", err);
+      Alert.alert("Error", "Failed to update photo. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeletePhoto = (photo) => {
+    Alert.alert(
+      "Delete Photo",
+      "Are you sure you want to delete this photo from your history? This will delete the corresponding feed post and cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setLoading(true);
+              const targetUserId = auth.currentUser?.uid;
+              if (!targetUserId) return;
+
+              const updates = {};
+              if (userData?.avatar_url === photo.media_url) {
+                updates.avatar_url = "";
+              }
+              if (userData?.banner_url === photo.media_url) {
+                updates.banner_url = "";
+              }
+
+              if (Object.keys(updates).length > 0) {
+                const { error: userUpdateError } = await supabase
+                  .from("users")
+                  .update(updates)
+                  .eq("id", targetUserId);
+                if (userUpdateError) throw userUpdateError;
+              }
+
+              const { error: deleteError } = await supabase
+                .from("posts")
+                .delete()
+                .eq("id", photo.id);
+
+              if (deleteError) throw deleteError;
+
+              Alert.alert("Success", "Photo deleted successfully.");
+              setSelectedPreviewPhoto(null);
+              fetchPhotoHistory();
+              fetchUserData();
+            } catch (err) {
+              console.error("Error deleting photo:", err);
+              Alert.alert("Error", "Failed to delete photo. Please try again.");
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
 
 
   const details = [
@@ -517,7 +666,10 @@ const Profile = () => {
         renderItem={({ item }) =>
           active === "Posts" ? (
             <View style={{ paddingHorizontal: 15 }}>
-              <Feed item={item} />
+              <Feed 
+                item={item} 
+                activePostId={activeViewablePostId} 
+              />
             </View>
           ) : (
             <View style={{ paddingHorizontal: 15 }}>
@@ -529,6 +681,8 @@ const Profile = () => {
             </View>
           )
         }
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
         ListHeaderComponent={
           userData ? (
             <>
@@ -591,7 +745,10 @@ const Profile = () => {
 
                     <Pressable
                       style={styles.settingIcon}
-                      onPress={handleLogout}
+                      onPress={() => {
+                        setCurrentMenuView("menu");
+                        setIsMenuVisible(true);
+                      }}
                     >
                       <Gear width={scale(25.94)} height={scale(25.94)} />
                     </Pressable>
@@ -768,8 +925,278 @@ const Profile = () => {
           item={activeViewPost}
           initialPhotoViewerVisible={true}
           onClosePhotoViewer={() => setActiveViewPost(null)}
+          onProfileImageUpdated={fetchUserData}
         />
       )}
+
+      {/* 1. Profile Settings Drawer Modal */}
+      <Modal
+        visible={isMenuVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsMenuVisible(false)}
+      >
+        <SafeAreaView style={styles.menuDrawerOverlay}>
+          <View style={styles.menuDrawerContainer}>
+            {/* Header */}
+            <View style={styles.menuDrawerHeader}>
+              <TouchableOpacity onPress={() => {
+                if (currentMenuView === "grid") {
+                  setCurrentMenuView("folders");
+                } else if (currentMenuView === "folders") {
+                  setCurrentMenuView("menu");
+                } else {
+                  setIsMenuVisible(false);
+                }
+              }} style={styles.menuCloseBtn}>
+                <Ionicons name="arrow-back" size={24} color="#1F2937" />
+              </TouchableOpacity>
+              <Text style={styles.menuHeaderTitle}>
+                {currentMenuView === "menu" ? "Profile Menu" : currentMenuView === "folders" ? "Photos/Videos" : selectedFolder === "avatar" ? "Profile Pictures" : "Cover Photos"}
+              </Text>
+              <View style={{ width: 24 }} />
+            </View>
+
+            {/* User display card */}
+            {currentMenuView === "menu" && (
+              <View style={styles.menuUserCard}>
+                <Image
+                  source={
+                    userData?.avatar_url && userData.avatar_url.trim() !== ""
+                      ? { uri: userData.avatar_url }
+                      : require("../../assets/images/default.png")
+                  }
+                  style={styles.menuUserAvatar}
+                />
+                <Text style={styles.menuUserFullName}>{userData?.full_name}</Text>
+                <Text style={styles.menuUserUsername}>@{userData?.username}</Text>
+                <View style={styles.menuDivider} />
+              </View>
+            )}
+
+            {/* Menu view dispatcher */}
+            {(() => {
+              if (currentMenuView === "menu") {
+                const menuItems = [
+                  { label: "Edit Profile", icon: "create-outline", action: () => { setIsMenuVisible(false); router.push("/editprofile"); } },
+                  { label: "Network", icon: "people-outline", action: () => { setIsMenuVisible(false); router.push("/connectionsList"); } },
+                  { label: "Photos/Videos", icon: "images-outline", action: () => { fetchPhotoHistory(); setCurrentMenuView("folders"); } },
+                  { label: "Group", icon: "chatbubbles-outline", action: () => Alert.alert("Groups", "Groups feature coming soon.") },
+                  { label: "Your Privacy", icon: "lock-closed-outline", action: () => Alert.alert("Privacy", "Privacy options coming soon.") },
+                  { label: "Search Profile", icon: "search-outline", action: () => Alert.alert("Search Profile", "Profile searching is available on the Home tab.") },
+                  { label: "Settings", icon: "settings-outline", action: () => Alert.alert("Settings", "General settings coming soon.") },
+                  { label: "About Us", icon: "information-circle-outline", action: () => Alert.alert("About Us", "Zyntra is a premium professional networking platform.") },
+                  { label: "Language", icon: "globe-outline", action: () => Alert.alert("Language", "English is currently the active language.") },
+                  { label: "Log Out", icon: "log-out-outline", action: () => { setIsMenuVisible(false); handleLogout(); }, isRed: true },
+                ];
+
+                return (
+                  <ScrollView style={styles.menuItemsList} showsVerticalScrollIndicator={false}>
+                    {menuItems.map((menuItem, idx) => (
+                      <TouchableOpacity key={idx} style={styles.menuItemRow} onPress={menuItem.action}>
+                        <View style={styles.menuItemLeft}>
+                          <Ionicons name={menuItem.icon} size={20} color={menuItem.isRed ? "red" : "#5096F1"} />
+                          <Text style={[styles.menuItemLabel, menuItem.isRed && { color: "red" }]}>{menuItem.label}</Text>
+                        </View>
+                        <Ionicons name="chevron-forward-outline" size={16} color="#9CA3AF" />
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                );
+              }
+
+              if (currentMenuView === "folders") {
+                const avatarCount = historyPhotos.filter(p => p.content === "updated their profile picture").length;
+                const bannerCount = historyPhotos.filter(p => p.content === "updated their cover photo").length;
+                const timelineCount = historyPhotos.filter(p => p.content !== "updated their profile picture" && p.content !== "updated their cover photo").length;
+
+                return (
+                  <View style={styles.foldersContainer}>
+                    <TouchableOpacity
+                      style={styles.folderCard}
+                      onPress={() => {
+                        setSelectedFolder("avatar");
+                        setCurrentMenuView("grid");
+                      }}
+                    >
+                      <View style={styles.folderIconBg}>
+                        <Ionicons name="folder" size={48} color="#4285F4" />
+                      </View>
+                      <Text style={styles.folderTitle}>Profile Pictures</Text>
+                      <Text style={styles.folderCount}>{avatarCount} items</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.folderCard}
+                      onPress={() => {
+                        setSelectedFolder("banner");
+                        setCurrentMenuView("grid");
+                      }}
+                    >
+                      <View style={styles.folderIconBg}>
+                        <Ionicons name="folder" size={48} color="#34A853" />
+                      </View>
+                      <Text style={styles.folderTitle}>Cover Photos</Text>
+                      <Text style={styles.folderCount}>{bannerCount} items</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.folderCard}
+                      onPress={() => {
+                        setSelectedFolder("timeline");
+                        setCurrentMenuView("grid");
+                      }}
+                    >
+                      <View style={styles.folderIconBg}>
+                        <Ionicons name="folder" size={48} color="#FBBC05" />
+                      </View>
+                      <Text style={styles.folderTitle}>Timeline Photos</Text>
+                      <Text style={styles.folderCount}>{timelineCount} items</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              }
+
+              if (currentMenuView === "grid") {
+                const filteredPhotos = historyPhotos.filter(p =>
+                  selectedFolder === "avatar"
+                    ? p.content === "updated their profile picture"
+                    : selectedFolder === "banner"
+                      ? p.content === "updated their cover photo"
+                      : p.content !== "updated their profile picture" && p.content !== "updated their cover photo"
+                );
+
+                if (filteredPhotos.length === 0) {
+                  return (
+                    <View style={styles.emptyGridContainer}>
+                      <Ionicons name="images-outline" size={48} color="#D1D5DB" />
+                      <Text style={styles.emptyGridText}>No past photos found in this folder.</Text>
+                    </View>
+                  );
+                }
+
+                return (
+                  <ScrollView style={{ flex: 1 }}>
+                    <View style={styles.photosGrid}>
+                      {filteredPhotos.map((photo, idx) => (
+                        <TouchableOpacity
+                          key={idx}
+                          style={styles.gridImageWrapper}
+                          onPress={() => setSelectedPreviewPhoto(photo)}
+                        >
+                          <Image source={{ uri: photo.media_url }} style={styles.gridImage} />
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </ScrollView>
+                );
+              }
+              return null;
+            })()}
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* 2. Fullscreen Preview and Options Modal */}
+      <Modal
+        visible={selectedPreviewPhoto !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setIsOptionsMenuVisible(false);
+          setSelectedPreviewPhoto(null);
+        }}
+      >
+        <Pressable 
+          style={styles.previewModalOverlay}
+          onPress={() => setIsOptionsMenuVisible(false)}
+        >
+          <SafeAreaView style={{ flex: 1 }}>
+            <View style={styles.previewModalHeader}>
+              <TouchableOpacity 
+                onPress={() => {
+                  setIsOptionsMenuVisible(false);
+                  setSelectedPreviewPhoto(null);
+                }} 
+                style={styles.previewCloseBtn}
+              >
+                <Ionicons name="close" size={28} color="#FFFFFF" />
+              </TouchableOpacity>
+              <Text style={styles.previewTitle}>Photo Preview</Text>
+              {selectedPreviewPhoto && isOwnProfile ? (
+                <TouchableOpacity
+                  onPress={() => setIsOptionsMenuVisible(!isOptionsMenuVisible)}
+                  style={styles.previewCloseBtn}
+                >
+                  <Ionicons name="ellipsis-horizontal" size={28} color="#FFFFFF" />
+                </TouchableOpacity>
+              ) : (
+                <View style={{ width: 28 }} />
+              )}
+            </View>
+
+            <View style={styles.previewImageContainer}>
+              {selectedPreviewPhoto && (
+                <Image source={{ uri: selectedPreviewPhoto.media_url }} style={styles.previewImage} resizeMode="contain" />
+              )}
+            </View>
+
+            {/* Custom Dropdown Option Overlay */}
+            {isOptionsMenuVisible && selectedPreviewPhoto && (
+              <View style={styles.dropdownCard}>
+                {selectedFolder === "avatar" && (
+                  <TouchableOpacity
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      setIsOptionsMenuVisible(false);
+                      handleSelectPastPhoto(selectedPreviewPhoto.media_url, true);
+                    }}
+                  >
+                    <Ionicons name="person-circle-outline" size={18} color="#FFFFFF" />
+                    <Text style={styles.dropdownItemText}>Set as Profile Picture</Text>
+                  </TouchableOpacity>
+                )}
+
+                {selectedFolder === "banner" && (
+                  <TouchableOpacity
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      setIsOptionsMenuVisible(false);
+                      handleSelectPastPhoto(selectedPreviewPhoto.media_url, false);
+                    }}
+                  >
+                    <Ionicons name="image-outline" size={18} color="#FFFFFF" />
+                    <Text style={styles.dropdownItemText}>Set as Cover Photo</Text>
+                  </TouchableOpacity>
+                )}
+
+                {isOwnProfile && (
+                  <TouchableOpacity
+                    style={[styles.dropdownItem, styles.dropdownItemDestructive]}
+                    onPress={() => {
+                      setIsOptionsMenuVisible(false);
+                      handleDeletePhoto(selectedPreviewPhoto);
+                    }}
+                  >
+                    <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                    <Text style={[styles.dropdownItemText, { color: '#EF4444' }]}>Delete Photo</Text>
+                  </TouchableOpacity>
+                )}
+
+                <View style={styles.dropdownDivider} />
+
+                <TouchableOpacity
+                  style={styles.dropdownItem}
+                  onPress={() => setIsOptionsMenuVisible(false)}
+                >
+                  <Ionicons name="close-outline" size={18} color="#9CA3AF" />
+                  <Text style={[styles.dropdownItemText, { color: '#9CA3AF' }]}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </SafeAreaView>
+        </Pressable>
+      </Modal>
     </ScreenWrapper>
   );
 };
@@ -963,5 +1390,220 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: "#fff",
     resizeMode: "cover",
+  },
+  menuDrawerOverlay: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  menuDrawerContainer: {
+    flex: 1,
+  },
+  menuDrawerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  menuCloseBtn: {
+    padding: 4,
+  },
+  menuHeaderTitle: {
+    fontSize: 18,
+    fontFamily: TYPOGRAPHY.semiBold,
+    color: '#1F2937',
+  },
+  menuUserCard: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  menuUserAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    marginBottom: 10,
+  },
+  menuUserFullName: {
+    fontSize: 20,
+    fontFamily: TYPOGRAPHY.bold,
+    color: '#111111',
+  },
+  menuUserUsername: {
+    fontSize: 14,
+    fontFamily: TYPOGRAPHY.regular,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  menuDivider: {
+    width: '90%',
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginTop: 20,
+  },
+  menuItemsList: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  menuItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  menuItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  menuItemLabel: {
+    fontSize: 15,
+    fontFamily: TYPOGRAPHY.medium,
+    color: '#1F2937',
+  },
+  foldersContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingTop: 30,
+    paddingHorizontal: 16,
+    gap: 16,
+  },
+  folderCard: {
+    width: '47%',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 8,
+  },
+  folderIconBg: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  folderTitle: {
+    fontSize: 14,
+    fontFamily: TYPOGRAPHY.semiBold,
+    color: '#1F2937',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  folderCount: {
+    fontSize: 12,
+    fontFamily: TYPOGRAPHY.regular,
+    color: '#6B7280',
+  },
+  emptyGridContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 60,
+  },
+  emptyGridText: {
+    fontSize: 14,
+    fontFamily: TYPOGRAPHY.regular,
+    color: '#9CA3AF',
+    marginTop: 10,
+  },
+  photosGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 4,
+  },
+  gridImageWrapper: {
+    width: '33.33%',
+    aspectRatio: 1,
+    padding: 4,
+  },
+  gridImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+  },
+  previewModalOverlay: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  previewModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  previewCloseBtn: {
+    padding: 4,
+  },
+  previewTitle: {
+    fontSize: 18,
+    fontFamily: TYPOGRAPHY.semiBold,
+    color: '#FFFFFF',
+  },
+  previewImageContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  dropdownCard: {
+    position: 'absolute',
+    top: 60,
+    right: 16,
+    backgroundColor: '#1F2937',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#374151',
+    zIndex: 2000,
+    padding: 6,
+    width: 220,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  dropdownItemDestructive: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#374151',
+    marginTop: 4,
+  },
+  dropdownItemText: {
+    fontSize: 14,
+    fontFamily: TYPOGRAPHY.medium,
+    color: '#FFFFFF',
+  },
+  dropdownDivider: {
+    height: 1,
+    backgroundColor: '#374151',
+    marginVertical: 4,
   },
 });

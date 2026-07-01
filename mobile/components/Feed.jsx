@@ -9,6 +9,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { router } from 'expo-router';
 import { auth } from '../config/firebase';
 import { supabase } from '../lib/supabase';
+import * as ImagePicker from 'expo-image-picker';
+import { Video, ResizeMode, Audio } from 'expo-av';
+import { Ionicons } from '@expo/vector-icons';
 import { renderTextWithMentions } from '../utils/mentions';
 import TYPOGRAPHY from '../constants/typography';
 import { acceptConnectionInDB } from '../utils/connectionHelpers';
@@ -288,7 +291,7 @@ const ZoomableImage = ({ source, style }) => {
   );
 };
 
-const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer }) => {
+const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onProfileImageUpdated, activePostId }) => {
   const targetPostId = item.id;
 
   const [expanded, setExpanded] = useState(false);
@@ -301,6 +304,32 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer }) =
   const [isPhotoViewerVisible, setIsPhotoViewerVisible] = useState(initialPhotoViewerVisible);
   const [photoViewerIndex, setPhotoViewerIndex] = useState(0);
   const [showPhotoViewerOptions, setShowPhotoViewerOptions] = useState(false);
+
+  // Inline Video playing state
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+
+  useEffect(() => {
+    const setupAudio = async () => {
+      try {
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          allowsRecordingIOS: false,
+          staysActiveInBackground: false,
+          shouldRouteThroughEarpieceIOS: false,
+        });
+      } catch (err) {
+        console.log("Failed to set audio mode:", err);
+      }
+    };
+    setupAudio();
+  }, []);
+
+  useEffect(() => {
+    if (activePostId && activePostId !== item.id) {
+      setIsVideoPlaying(false);
+    }
+  }, [activePostId]);
 
   // Comments bottom sheet states inside photo viewer
   const [showCommentsSheet, setShowCommentsSheet] = useState(false);
@@ -403,6 +432,92 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer }) =
     setShowCommentsSheet(false);
     if (onClosePhotoViewer) {
       onClosePhotoViewer();
+    }
+  };
+
+  const handleUpdateProfileImageDirectly = async () => {
+    const isAvatarPost = item.content === "updated their profile picture";
+    const isBannerPost = item.content === "updated their cover photo";
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: isAvatarPost,
+        aspect: isAvatarPost ? [1, 1] : undefined,
+        quality: 0.8,
+      });
+
+      if (result.canceled) return;
+
+      const imageUri = result.assets[0].uri;
+
+      const formData = new FormData();
+      let cleanUri = imageUri;
+      try {
+        let decoded = decodeURIComponent(cleanUri);
+        while (decoded !== cleanUri) {
+          cleanUri = decoded;
+          decoded = decodeURIComponent(cleanUri);
+        }
+      } catch (e) {
+        // Fallback
+      }
+
+      formData.append("file", {
+        uri: cleanUri,
+        type: "image/jpeg",
+        name: isAvatarPost ? "avatar.jpg" : "banner.jpg",
+      });
+      formData.append("upload_preset", "avatar");
+
+      const response = await fetch(
+        "https://api.cloudinary.com/v1_1/dcazbfdaw/image/upload",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const uploadData = await response.json();
+      if (!uploadData.secure_url) {
+        throw new Error("Cloudinary upload failed");
+      }
+
+      const uploadedUrl = uploadData.secure_url;
+
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({
+          [isAvatarPost ? "avatar_url" : "banner_url"]: uploadedUrl,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", user.uid);
+
+      if (updateError) throw updateError;
+
+      const { error: insertError } = await supabase
+        .from("posts")
+        .insert({
+          user_id: user.uid,
+          content: isAvatarPost ? "updated their profile picture" : "updated their cover photo",
+          media_url: uploadedUrl,
+          media_type: "image",
+          created_at: new Date().toISOString(),
+        });
+
+      if (insertError) throw insertError;
+
+      Alert.alert("Success", isAvatarPost ? "Profile picture updated successfully!" : "Cover photo updated successfully!");
+      
+      handleClosePhotoViewer();
+      if (onProfileImageUpdated) {
+        onProfileImageUpdated();
+      }
+    } catch (err) {
+      console.error("Error updating profile image directly:", err);
+      Alert.alert("Error", "Failed to update profile image: " + err.message);
     }
   };
 
@@ -765,6 +880,26 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer }) =
                 .delete()
                 .eq("id", item.id);
               if (error) throw error;
+
+              // Deletion Sync: If this was a profile picture or cover photo post, reset the users table
+              const isAvatarPost = item.content === "updated their profile picture";
+              const isBannerPost = item.content === "updated their cover photo";
+              const user = auth.currentUser;
+
+              if (user && (isAvatarPost || isBannerPost)) {
+                await supabase
+                  .from("users")
+                  .update({
+                    [isAvatarPost ? "avatar_url" : "banner_url"]: null,
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq("id", user.uid);
+
+                if (onProfileImageUpdated) {
+                  onProfileImageUpdated();
+                }
+              }
+
               Alert.alert("Success", "Post deleted successfully!");
             } catch (err) {
               Alert.alert("Error", err.message);
@@ -970,7 +1105,7 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer }) =
             />
 
             <View style={styles.feedInfo}>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', width: cardWidth - 50 }}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', flex: 1 }}>
                 <Text style={styles.name}>
                   {item.user.name}
                   {item.repost_id ? (
@@ -1122,6 +1257,53 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer }) =
             if (images.length === 0) return null;
 
             if (images.length === 1) {
+              const isVideo = item.media_type === "video" || (images[0].uri && (images[0].uri.includes(".mp4") || images[0].uri.includes(".mov")));
+
+              if (isVideo) {
+                return (
+                  <View style={[styles.videoContainer, { width: cardWidth }]}>
+                    <Video
+                      source={images[0]}
+                      rate={1.0}
+                      volume={1.0}
+                      isMuted={isMuted}
+                      resizeMode={ResizeMode.CONTAIN}
+                      shouldPlay={isVideoPlaying}
+                      useNativeControls={isVideoPlaying}
+                      isLooping
+                      style={styles.feedVideo}
+                      onPlaybackStatusUpdate={(status) => {
+                        if (status.isPlaying !== isVideoPlaying) {
+                          setIsVideoPlaying(status.isPlaying);
+                        }
+                      }}
+                    />
+                    {!isVideoPlaying && (
+                      <Pressable 
+                        style={styles.videoPlayOverlay} 
+                        onPress={() => setIsVideoPlaying(true)}
+                      >
+                        <View style={styles.videoPlayOverlayCircle}>
+                          <Ionicons name="play" size={32} color="#FFFFFF" style={{ marginLeft: 3 }} />
+                        </View>
+                      </Pressable>
+                    )}
+                    {isVideoPlaying && (
+                      <Pressable 
+                        style={styles.muteButtonOverlay} 
+                        onPress={() => setIsMuted(!isMuted)}
+                      >
+                        <Ionicons 
+                          name={isMuted ? "volume-mute" : "volume-high"} 
+                          size={18} 
+                          color="#FFFFFF" 
+                        />
+                      </Pressable>
+                    )}
+                  </View>
+                );
+              }
+
               return (
                 <Pressable onPress={() => {
                   setPhotoViewerIndex(0);
@@ -1515,17 +1697,34 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer }) =
               <View style={styles.viewerCardOptionsDropdown}>
                 {isAuthor && (
                   <>
-                    <TouchableOpacity
-                      onPress={() => {
-                        setShowPhotoViewerOptions(false);
-                        handleClosePhotoViewer();
-                        handleEditPost();
-                      }}
-                      style={styles.optionItem}
-                    >
-                      <EditIcon size={16} color="#333" />
-                      <Text style={styles.optionText}>Edit Post</Text>
-                    </TouchableOpacity>
+                    {isUpdatePost ? (
+                      <TouchableOpacity
+                        onPress={() => {
+                          setShowPhotoViewerOptions(false);
+                          handleUpdateProfileImageDirectly();
+                        }}
+                        style={styles.optionItem}
+                      >
+                        <EditIcon size={16} color="#333" />
+                        <Text style={styles.optionText}>
+                          {item.content === "updated their profile picture"
+                            ? "Upload New Profile Picture"
+                            : "Upload New Cover Photo"}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => {
+                          setShowPhotoViewerOptions(false);
+                          handleClosePhotoViewer();
+                          handleEditPost();
+                        }}
+                        style={styles.optionItem}
+                      >
+                        <EditIcon size={16} color="#333" />
+                        <Text style={styles.optionText}>Edit Post</Text>
+                      </TouchableOpacity>
+                    )}
                     <View style={styles.optionDivider} />
                   </>
                 )}
@@ -1617,6 +1816,24 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer }) =
                 };
                 const images = getImagesList();
                 if (images.length > 0 && images[photoViewerIndex]) {
+                  const isVideo = item.media_type === "video" || (images[photoViewerIndex].uri && (images[photoViewerIndex].uri.includes(".mp4") || images[photoViewerIndex].uri.includes(".mov")));
+
+                  if (isVideo) {
+                    return (
+                      <Video
+                        source={images[photoViewerIndex]}
+                        rate={1.0}
+                        volume={1.0}
+                        isMuted={false}
+                        resizeMode={ResizeMode.CONTAIN}
+                        shouldPlay={true}
+                        useNativeControls
+                        isLooping
+                        style={styles.viewerVideo}
+                      />
+                    );
+                  }
+
                   return (
                     <ZoomableImage
                       source={images[photoViewerIndex]}
@@ -1629,90 +1846,92 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer }) =
             </View>
 
             {/* 3. Bottom Content & Actions (Light theme) */}
-            <View style={styles.viewerCardFooter}>
-              {/* Post Description Content (ScrollView in case it is long) */}
-              {item.content && !isUpdatePost ? (
-                <ScrollView style={styles.viewerContentScroll} maxHeight={80} showsVerticalScrollIndicator={false}>
-                  <Text style={styles.viewerContentText}>
-                    {renderTextWithMentions(item.content, styles.mentionLink, styles.viewerContentText)}
-                  </Text>
-                </ScrollView>
-              ) : null}
+            {!item.isTempViewerOnly && (
+              <View style={styles.viewerCardFooter}>
+                {/* Post Description Content (ScrollView in case it is long) */}
+                {item.content && !isUpdatePost ? (
+                  <ScrollView style={styles.viewerContentScroll} maxHeight={80} showsVerticalScrollIndicator={false}>
+                    <Text style={styles.viewerContentText}>
+                      {renderTextWithMentions(item.content, styles.mentionLink, styles.viewerContentText)}
+                    </Text>
+                  </ScrollView>
+                ) : null}
 
-              {/* Counts Info Bar */}
-              {(totalReactions > 0 || commentsCount > 0) && (
-                <View style={styles.viewerInfoBar}>
-                  <View style={styles.infoReactions}>
-                    {totalReactions > 0 && (
-                      <>
-                        <View style={styles.emojiContainer}>
-                          {getTopReactionEmojis(reactionCounts).map((emoji, index) => (
-                            <View
-                              key={index}
-                              style={[
-                                styles.emojiCircle,
-                                {
-                                  marginLeft: index > 0 ? -6 : 0,
-                                  zIndex: 10 - index
-                                }
-                              ]}
-                            >
-                              <Text style={styles.infoReactionsEmojis}>{emoji}</Text>
-                            </View>
-                          ))}
-                        </View>
-                        <Text style={styles.viewerInfoReactionsText}>
-                          {totalReactions}
-                        </Text>
-                      </>
+                {/* Counts Info Bar */}
+                {(totalReactions > 0 || commentsCount > 0) && (
+                  <View style={styles.viewerInfoBar}>
+                    <View style={styles.infoReactions}>
+                      {totalReactions > 0 && (
+                        <>
+                          <View style={styles.emojiContainer}>
+                            {getTopReactionEmojis(reactionCounts).map((emoji, index) => (
+                              <View
+                                key={index}
+                                style={[
+                                  styles.emojiCircle,
+                                  {
+                                    marginLeft: index > 0 ? -6 : 0,
+                                    zIndex: 10 - index
+                                  }
+                                ]}
+                              >
+                                <Text style={styles.infoReactionsEmojis}>{emoji}</Text>
+                              </View>
+                            ))}
+                          </View>
+                          <Text style={styles.viewerInfoReactionsText}>
+                            {totalReactions}
+                          </Text>
+                        </>
+                      )}
+                    </View>
+                    {commentsCount > 0 && (
+                      <Text style={styles.viewerInfoCommentsText}>
+                        {commentsCount} {commentsCount === 1 ? "comment" : "comments"}
+                      </Text>
                     )}
                   </View>
-                  {commentsCount > 0 && (
-                    <Text style={styles.viewerInfoCommentsText}>
-                      {commentsCount} {commentsCount === 1 ? "comment" : "comments"}
+                )}
+
+                {/* Action Buttons Row */}
+                <View style={styles.viewerActionsRow}>
+                  {/* Like/Reaction Button */}
+                  <Pressable
+                    onPress={handleToggleLike}
+                    onLongPress={() => setShowReactionsPanel(true)}
+                    delayLongPress={250}
+                    style={styles.viewerActionBtn}
+                  >
+                    {myReaction ? (
+                      <Text style={{ fontSize: 20 }}>{getReactionEmoji(myReaction)}</Text>
+                    ) : (
+                      <Like width={20} height={20} color="#6B7280" />
+                    )}
+                    <Text style={[styles.viewerActionBtnText, myReaction ? { color: "#5096F1" } : { color: "#6B7280" }]}>
+                      {myReaction ? capitalize(myReaction) : "Like"}
                     </Text>
-                  )}
+                  </Pressable>
+
+                  {/* Comment Button */}
+                  <Pressable
+                    onPress={() => setShowCommentsSheet(true)}
+                    style={styles.viewerActionBtn}
+                  >
+                    <Message width={20} height={20} color="#6B7280" />
+                    <Text style={[styles.viewerActionBtnText, { color: "#6B7280" }]}>Comment</Text>
+                  </Pressable>
+
+                  {/* Share Button */}
+                  <Pressable
+                    onPress={handleSharePost}
+                    style={styles.viewerActionBtn}
+                  >
+                    <Share width={20} height={20} color="#6B7280" />
+                    <Text style={[styles.viewerActionBtnText, { color: "#6B7280" }]}>Share</Text>
+                  </Pressable>
                 </View>
-              )}
-
-              {/* Action Buttons Row */}
-              <View style={styles.viewerActionsRow}>
-                {/* Like/Reaction Button */}
-                <Pressable
-                  onPress={handleToggleLike}
-                  onLongPress={() => setShowReactionsPanel(true)}
-                  delayLongPress={250}
-                  style={styles.viewerActionBtn}
-                >
-                  {myReaction ? (
-                    <Text style={{ fontSize: 20 }}>{getReactionEmoji(myReaction)}</Text>
-                  ) : (
-                    <Like width={20} height={20} color="#6B7280" />
-                  )}
-                  <Text style={[styles.viewerActionBtnText, myReaction ? { color: "#5096F1" } : { color: "#6B7280" }]}>
-                    {myReaction ? capitalize(myReaction) : "Like"}
-                  </Text>
-                </Pressable>
-
-                {/* Comment Button */}
-                <Pressable
-                  onPress={() => setShowCommentsSheet(true)}
-                  style={styles.viewerActionBtn}
-                >
-                  <Message width={20} height={20} color="#6B7280" />
-                  <Text style={[styles.viewerActionBtnText, { color: "#6B7280" }]}>Comment</Text>
-                </Pressable>
-
-                {/* Share Button */}
-                <Pressable
-                  onPress={handleSharePost}
-                  style={styles.viewerActionBtn}
-                >
-                  <Share width={20} height={20} color="#6B7280" />
-                  <Text style={[styles.viewerActionBtnText, { color: "#6B7280" }]}>Share</Text>
-                </Pressable>
               </View>
-            </View>
+            )}
 
             {/* Floating Reactions Option Panel inside card footer context */}
             {showReactionsPanel && (
@@ -1823,6 +2042,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    flex: 1,
+    marginRight: 10,
   },
 
   moreButton: {
@@ -1920,6 +2141,7 @@ const styles = StyleSheet.create({
 
   feedInfo: {
     gap: 3,
+    flex: 1,
   },
 
   name: {
@@ -2356,7 +2578,7 @@ const styles = StyleSheet.create({
     borderColor: "#e0e0e0",
     borderRadius: 12,
     paddingVertical: 5,
-    width: 150,
+    width: 220,
     zIndex: 1001,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
@@ -2381,6 +2603,51 @@ const styles = StyleSheet.create({
   viewerImage: {
     width: '100%',
     height: '100%',
+  },
+  videoContainer: {
+    height: 220,
+    backgroundColor: '#000000',
+    borderRadius: 10,
+    marginTop: 10,
+    overflow: 'hidden',
+  },
+  feedVideo: {
+    width: '100%',
+    height: '100%',
+  },
+  viewerVideo: {
+    width: '100%',
+    height: '100%',
+  },
+  videoPlayOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  videoPlayOverlayCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+  },
+  muteButtonOverlay: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+    zIndex: 1000,
   },
   viewerCardFooter: {
     padding: 16,
