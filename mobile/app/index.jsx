@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { View, ActivityIndicator } from "react-native";
+import { View } from "react-native";
+import Preloader from "../components/Preloader";
 import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { auth } from "../config/firebase";
@@ -34,11 +35,7 @@ export default function Index() {
   }, []);
 
   if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
+    return <Preloader />;
   }
 
   return null;

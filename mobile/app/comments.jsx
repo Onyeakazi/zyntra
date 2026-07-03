@@ -8,13 +8,15 @@ import {
   Pressable,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  RefreshControl
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { auth } from '../config/firebase';
 import ScreenWrapper from '../components/ScreenWrapper';
+import Preloader from '../components/Preloader';
 import Feed from '../components/Feed';
 import { renderTextWithMentions, handleMentionPress } from '../utils/mentions';
 import { formatPostTime } from '../utils/timeFormat';
@@ -34,6 +36,7 @@ export default function Comments() {
   const [loading, setLoading] = useState(true);
   const [commentText, setCommentText] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [allUsers, setAllUsers] = useState([]);
   const [suggestedUsers, setSuggestedUsers] = useState([]);
@@ -309,6 +312,17 @@ export default function Comments() {
       console.error("Error fetching comments/replies:", err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([fetchPostDetails(), fetchComments()]);
+    } catch (err) {
+      console.error("Error refreshing comments:", err);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -681,11 +695,8 @@ export default function Comments() {
             </Pressable>
           </View>
 
-          {/* Loader or Comments List */}
           {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={COLORS.primary} />
-            </View>
+            <Preloader text="Loading comments..." />
           ) : (
             <FlatList
               ref={flatListRef}
@@ -696,6 +707,9 @@ export default function Comments() {
               showsVerticalScrollIndicator={false}
               onScroll={() => setActiveReactionsMenuId(null)}
               scrollEventThrottle={16}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+              }
               ListHeaderComponent={post ? <Feed item={post} /> : null}
               ListEmptyComponent={
                 <View style={styles.emptyContainer}>

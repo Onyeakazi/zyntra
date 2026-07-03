@@ -10,6 +10,7 @@ import {
   Alert
 } from 'react-native';
 import ScreenWrapper from '../../components/ScreenWrapper';
+import Preloader from '../../components/Preloader';
 import { StatusBar } from 'expo-status-bar';
 import { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
@@ -473,11 +474,8 @@ const NotificationScreen = () => {
           )}
         </View>
 
-        {/* Content Body */}
         {loading ? (
-          <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
-          </View>
+          <Preloader text="Loading notifications..." />
         ) : (
           <FlatList
             data={notifications}

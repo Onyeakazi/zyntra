@@ -12,6 +12,7 @@ import {
   Dimensions,
   Alert,
   SafeAreaView,
+  RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
@@ -32,6 +33,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import Feed from "../../components/Feed";
 import DetailsCard from "../../components/DetailsCard";
 import Button from "../../components/Button";
+import Preloader from "../../components/Preloader";
 import { auth } from "../../config/firebase";
 import { signOut } from "firebase/auth";
 import { supabase } from "../../lib/supabase";
@@ -46,6 +48,7 @@ const Profile = () => {
   const [active, setActive] = useState("Posts");
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [feeds, setFeeds] = useState([]);
   const [error, setError] = useState("");
   const [isAuthChecked, setIsAuthChecked] = useState(false);
@@ -425,6 +428,21 @@ const Profile = () => {
     }
   };
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await fetchUserData();
+      await fetchConnectionStatus();
+      if (userData) {
+        await fetchUserPosts();
+      }
+    } catch (err) {
+      console.error("Error refreshing profile data:", err);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [userId, userData]);
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -594,17 +612,8 @@ const Profile = () => {
 
   const dataToRender = active === "Posts" ? feeds : details;
 
-  // FIXED:
-  // Better loading condition
   if (loading) {
-    return (
-      <ScreenWrapper>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>Loading profile...</Text>
-        </View>
-      </ScreenWrapper>
-    );
+    return <Preloader text="Loading profile..." />;
   }
 
   // Show error if not logged in
@@ -663,6 +672,9 @@ const Profile = () => {
         contentContainerStyle={{
           paddingBottom: 100,
         }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
         renderItem={({ item }) =>
           active === "Posts" ? (
             <View style={{ paddingHorizontal: 15 }}>

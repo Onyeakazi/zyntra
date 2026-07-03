@@ -438,6 +438,7 @@ const Login = () => {
                             action={handleSignin}
                             bgColor={"#438def"}
                             textColor={"#FFFFFF"}
+                            loading={loading}
                             style={{paddingVertical: 17}}
                         />
                     </View>
@@ -526,6 +527,7 @@ const Login = () => {
                             action={handleSignup}
                             bgColor={"#438def"}
                             textColor={"#FFFFFF"}
+                            loading={loading}
                             style={{paddingVertical: 17}}
                         />
                     </View>

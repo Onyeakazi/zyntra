@@ -12,6 +12,7 @@ import { StatusBar } from "expo-status-bar";
 import ScreenWrapper from "../components/ScreenWrapper";
 import FloatingInput from "../components/Input";
 import Button from "../components/Button";
+import Preloader from "../components/Preloader";
 import TYPOGRAPHY from "../constants/typography";
 import COLORS from "../constants/colors";
 import { scale, verticalScale } from "../utils/scale";
@@ -251,13 +252,7 @@ const EditProfile = () => {
     };
 
   if (loading) {
-    return (
-      <ScreenWrapper>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-        </View>
-      </ScreenWrapper>
-    );
+    return <Preloader text="Loading profile details..." />;
   }
 
   return (

@@ -12,6 +12,7 @@ import {
   Alert
 } from 'react-native';
 import ScreenWrapper from '../../components/ScreenWrapper';
+import Preloader from '../../components/Preloader';
 import { StatusBar } from 'expo-status-bar';
 import Back from '../../assets/vectors/back.svg';
 import TYPOGRAPHY from "../../constants/typography";
@@ -358,10 +359,7 @@ const AddFriends = () => {
         </View>
 
         {loading && users.length === 0 && incomingRequests.length === 0 ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={COLORS.accent} />
-            <Text style={styles.loadingText}>Finding people...</Text>
-          </View>
+          <Preloader text="Finding people..." />
         ) : (
           <FlatList
             data={filteredUsers}

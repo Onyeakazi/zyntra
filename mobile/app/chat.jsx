@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import StoryViewer from '../components/StoryViewer';
+import Preloader from '../components/Preloader';
 import { StatusBar } from 'expo-status-bar';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
@@ -935,11 +936,8 @@ const ChatRoom = () => {
           </Pressable>
         </View>
 
-        {/* Messages Body */}
         {loading ? (
-          <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color={COLORS.accent} />
-          </View>
+          <Preloader text="Loading messages..." />
         ) : (
           <FlatList
             data={messages}

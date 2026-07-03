@@ -1,5 +1,5 @@
 import { Stack } from 'expo-router';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, Alert } from 'react-native';
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -13,6 +13,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth } from '../config/firebase';
 import COLORS from '../constants/colors';
 import { Stack as ExpoStack } from 'expo-router';
+import Preloader from '../components/Preloader';
+import { customAlert } from '../utils/alertManager';
+import CustomAlertModal from '../components/CustomAlertModal';
+
+// Global alert override
+global.alert = (message) => {
+  customAlert("Alert", message);
+};
+
+// React Native Alert override
+Alert.alert = (title, message, buttons, options) => {
+  customAlert(title, message, buttons, options);
+};
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -69,38 +82,43 @@ export default function RootLayout() {
 
   // Loading screen
   if (!fontsLoaded || !isReady || hasSeenOnboarding === null || !authStateResolved) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.bg }}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
-    );
+    return <Preloader />;
   }
+
+  let rootContent;
 
   // NOT seen onboarding → show onboarding
   if (!hasSeenOnboarding) {
     console.log('📱 Rendering: Onboarding');
-    return (
+    rootContent = (
       <ExpoStack screenOptions={{ headerShown: false }}>
         <ExpoStack.Screen name="onboarding" />
       </ExpoStack>
     );
   }
-
   // NOT logged in → show auth
-  if (!user) {
+  else if (!user) {
     console.log('📱 Rendering: Auth');
-    return (
+    rootContent = (
       <ExpoStack screenOptions={{ headerShown: false }}>
         <ExpoStack.Screen name="(auth)" />
       </ExpoStack>
     );
   }
-
   // Logged in → show tabs
-  console.log('📱 Rendering: Tabs');
+  else {
+    console.log('📱 Rendering: Tabs');
+    rootContent = (
+      <ExpoStack screenOptions={{ headerShown: false }}>
+        <ExpoStack.Screen name="(tabs)" />
+      </ExpoStack>
+    );
+  }
+
   return (
-    <ExpoStack screenOptions={{ headerShown: false }}>
-      <ExpoStack.Screen name="(tabs)" />
-    </ExpoStack>
+    <>
+      {rootContent}
+      <CustomAlertModal />
+    </>
   );
 }
