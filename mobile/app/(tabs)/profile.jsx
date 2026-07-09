@@ -1145,10 +1145,7 @@ const Profile = () => {
           setSelectedPreviewPhoto(null);
         }}
       >
-        <Pressable 
-          style={styles.previewModalOverlay}
-          onPress={() => setIsOptionsMenuVisible(false)}
-        >
+        <View style={styles.previewModalOverlay}>
           <SafeAreaView style={{ flex: 1 }}>
             <View style={styles.previewModalHeader}>
               <TouchableOpacity 
@@ -1199,6 +1196,7 @@ const Profile = () => {
                       <Image source={{ uri: item.media_url }} style={styles.previewImage} resizeMode="contain" />
                     </View>
                   )}
+                  style={{ width: '100%', height: '100%' }}
                 />
               )}
             </View>
@@ -1263,7 +1261,7 @@ const Profile = () => {
               </>
             )}
           </SafeAreaView>
-        </Pressable>
+        </View>
       </Modal>
     </ScreenWrapper>
   );
