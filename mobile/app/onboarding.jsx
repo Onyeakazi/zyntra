@@ -63,7 +63,7 @@ export default function Onboarding() {
           });
 
           return (
-            <View style={styles.slide}>
+            <View style={[styles.slide, { width }]}>
 
               <Animated.View
                 style={{
@@ -157,7 +157,6 @@ const styles = createResponsiveStyleSheet({
   },
 
   slide: {
-    width,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,

@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Modal, View, Text, TouchableOpacity, Animated, Dimensions, Platform, StyleSheet } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, Animated, Platform, StyleSheet } from 'react-native';
 import createResponsiveStyleSheet from '../utils/responsiveStyleSheet';
 import { Ionicons } from '@expo/vector-icons';
 import COLORS from '../constants/colors';
 import TYPOGRAPHY from '../constants/typography';
 import { registerAlertCallback } from '../utils/alertManager';
 
-const { width } = Dimensions.get('window');
 
 const CustomAlertModal = () => {
   const [visible, setVisible] = useState(false);
@@ -196,7 +195,7 @@ const styles = createResponsiveStyleSheet({
     backgroundColor: 'rgba(9, 11, 14, 0.45)', // Premium dark overlay color
   },
   dialog: {
-    width: width * 0.86,
+    width: 320,
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
     padding: 24,

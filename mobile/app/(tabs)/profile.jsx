@@ -45,6 +45,7 @@ const Profile = () => {
   const { userId } = useLocalSearchParams();
   const currentUserId = auth.currentUser?.uid;
   const isOwnProfile = !userId || userId === currentUserId;
+  const screenWidth = Dimensions.get("window").width;
 
   const [active, setActive] = useState("Posts");
   const [userData, setUserData] = useState(null);
@@ -72,6 +73,14 @@ const Profile = () => {
   const [isOptionsMenuVisible, setIsOptionsMenuVisible] = useState(false);
   const [photoHistoryList, setPhotoHistoryList] = useState([]);
   const [photoHistoryIndex, setPhotoHistoryIndex] = useState(0);
+
+  const filteredPhotos = historyPhotos.filter(p =>
+    selectedFolder === "avatar"
+      ? p.content === "updated their profile picture"
+      : selectedFolder === "banner"
+        ? p.content === "updated their cover photo"
+        : p.content !== "updated their profile picture" && p.content !== "updated their cover photo"
+  );
 
   const viewabilityConfig = useRef({
     itemVisiblePercentThreshold: 70,
@@ -1095,14 +1104,6 @@ const Profile = () => {
               }
 
               if (currentMenuView === "grid") {
-                const filteredPhotos = historyPhotos.filter(p =>
-                  selectedFolder === "avatar"
-                    ? p.content === "updated their profile picture"
-                    : selectedFolder === "banner"
-                      ? p.content === "updated their cover photo"
-                      : p.content !== "updated their profile picture" && p.content !== "updated their cover photo"
-                );
-
                 if (filteredPhotos.length === 0) {
                   return (
                     <View style={styles.emptyGridContainer}>
@@ -1174,7 +1175,31 @@ const Profile = () => {
 
             <View style={styles.previewImageContainer}>
               {selectedPreviewPhoto && (
-                <Image source={{ uri: selectedPreviewPhoto.media_url }} style={styles.previewImage} resizeMode="contain" />
+                <FlatList
+                  data={filteredPhotos}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  keyExtractor={(item) => item.id.toString()}
+                  initialScrollIndex={filteredPhotos.findIndex(p => p.id === selectedPreviewPhoto.id)}
+                  getItemLayout={(data, index) => ({
+                    length: screenWidth,
+                    offset: screenWidth * index,
+                    index,
+                  })}
+                  onMomentumScrollEnd={(e) => {
+                    const offset = e.nativeEvent.contentOffset.x;
+                    const idx = Math.round(offset / screenWidth);
+                    if (idx >= 0 && idx < filteredPhotos.length) {
+                      setSelectedPreviewPhoto(filteredPhotos[idx]);
+                    }
+                  }}
+                  renderItem={({ item }) => (
+                    <View style={{ width: screenWidth, height: '100%', justifyContent: 'center', alignItems: 'center' }}>
+                      <Image source={{ uri: item.media_url }} style={styles.previewImage} resizeMode="contain" />
+                    </View>
+                  )}
+                />
               )}
             </View>
 
@@ -1351,31 +1376,34 @@ const styles = createResponsiveStyleSheet({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    gap: scale(15),
-    marginTop: verticalScale(20),
+    gap: 15,
+    marginTop: 20,
+    paddingHorizontal: 15,
   },
 
   editBtn: {
     flex: 1,
+    height: 44,
     borderWidth: 1,
     borderColor: COLORS.gray,
     borderRadius: 10,
-    paddingVertical: verticalScale(12),
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   settingIcon: {
+    width: 44,
+    height: 44,
     borderWidth: 1,
     borderColor: COLORS.gray,
     borderRadius: 10,
-    paddingVertical: verticalScale(9),
-    paddingHorizontal: scale(16),
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   settingText: {
     fontFamily: TYPOGRAPHY.semiBold,
-    fontSize: scale(14),
+    fontSize: 14,
     color: "#606073",
   },
 

@@ -7,7 +7,6 @@ import {
   Image,
   Pressable,
   Animated,
-  Dimensions,
   SafeAreaView,
   Platform,
   StatusBar,
@@ -702,8 +701,6 @@ const StoryViewer = ({
 
 export default StoryViewer
 
-const { width, height } = Dimensions.get('window')
-
 const styles = createResponsiveStyleSheet({
   container: {
     flex: 1,
@@ -718,7 +715,7 @@ const styles = createResponsiveStyleSheet({
   leftNavZone: {
     position: 'absolute',
     left: 0,
-    width: width * 0.15,
+    width: '15%',
     top: 100,
     bottom: 150,
     zIndex: 10,
@@ -727,7 +724,7 @@ const styles = createResponsiveStyleSheet({
   rightNavZone: {
     position: 'absolute',
     right: 0,
-    width: width * 0.15,
+    width: '15%',
     top: 100,
     bottom: 150,
     zIndex: 10,
@@ -735,8 +732,8 @@ const styles = createResponsiveStyleSheet({
   },
   centerHoldZone: {
     position: 'absolute',
-    left: width * 0.15,
-    right: width * 0.15,
+    left: '15%',
+    right: '15%',
     top: 100,
     bottom: 150,
     zIndex: 9,
@@ -749,8 +746,8 @@ const styles = createResponsiveStyleSheet({
     alignItems: 'center',
   },
   mediaImage: {
-    width: width,
-    height: height,
+    width: '100%',
+    height: '100%',
     backgroundColor: '#000',
   },
   videoPlayIndicator: {
@@ -765,8 +762,8 @@ const styles = createResponsiveStyleSheet({
 
   // Text story full screen
   textStoryCanvas: {
-    width: width,
-    height: height,
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -866,7 +863,7 @@ const styles = createResponsiveStyleSheet({
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    maxWidth: width - 40,
+    maxWidth: 335,
     marginBottom: 12,
   },
   captionText: {

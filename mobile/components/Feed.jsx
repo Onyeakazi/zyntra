@@ -14,8 +14,10 @@ import { Video, ResizeMode, Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { renderTextWithMentions } from '../utils/mentions';
 import TYPOGRAPHY from '../constants/typography';
+import COLORS from '../constants/colors';
 import { acceptConnectionInDB } from '../utils/connectionHelpers';
 import createResponsiveStyleSheet from '../utils/responsiveStyleSheet';
+import { scale as scaleSize } from '../utils/scale';
 
 // Custom inline SVG icons for visual excellence
 const EditIcon = ({ color = "#333", size = 16 }) => (
@@ -365,7 +367,7 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
   }, [isPhotoViewerVisible, activeItem, photoViewerIndex]);
 
   const resolvedAspectRatio = Math.max(0.75, imageAspectRatio);
-  const viewerCardWidth = Dimensions.get("window").width * 0.88;
+  const viewerCardWidth = scaleSize(330);
   const viewerImageHeight = activeItem && activeItem.content === "updated their cover photo"
     ? viewerCardWidth * 0.375
     : viewerCardWidth / resolvedAspectRatio;
@@ -1421,16 +1423,10 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
                     </Pressable>
                   ))}
                 </ScrollView>
-                <View style={styles.dotsContainer}>
-                  {images.map((_, index) => (
-                    <View
-                      key={index}
-                      style={[
-                        styles.dot,
-                        activeIndex === index ? styles.activeDot : null
-                      ]}
-                    />
-                  ))}
+                <View style={styles.pageIndicatorPill}>
+                  <Text style={styles.pageIndicatorText}>
+                    {activeIndex + 1}/{images.length}
+                  </Text>
                 </View>
               </View>
             );
@@ -2356,24 +2352,29 @@ const styles = createResponsiveStyleSheet({
     height: "100%",
   },
 
-  dotsContainer: {
-    flexDirection: "row",
+  pageIndicatorPill: {
     position: "absolute",
-    bottom: 10,
-    alignSelf: "center",
-    gap: 6,
+    top: 12,
+    right: 12,
+    backgroundColor: "rgba(10, 14, 26, 0.65)", // premium glassmorphic dark background
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)", // frosted white border
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12, // rounded capsule
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
   },
 
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "rgba(255, 255, 255, 0.4)",
-    marginHorizontal: 1,
-  },
-  activeDot: {
-    backgroundColor: "#ffffff",
-    width: 12,
+  pageIndicatorText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontFamily: TYPOGRAPHY.semiBold,
   },
 
   feedFooter: {
@@ -2688,7 +2689,7 @@ const styles = createResponsiveStyleSheet({
     alignItems: 'center',
   },
   viewerCard: {
-    width: Dimensions.get("window").width * 0.88,
+    width: 330,
     maxHeight: '85%',
     backgroundColor: '#FAFAFA',
     borderRadius: 20,
@@ -2764,7 +2765,7 @@ const styles = createResponsiveStyleSheet({
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    width: Dimensions.get("window").width - 32,
+    width: 343,
     height: 320,
   },
   viewerImage: {

@@ -5,7 +5,6 @@ import {
   Image, 
   FlatList, 
   ActivityIndicator, 
-  Dimensions, 
   TextInput, 
   RefreshControl,
   Alert
@@ -26,8 +25,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { acceptConnectionInDB } from '../../utils/connectionHelpers';
 
-const { width } = Dimensions.get('window');
-const cardWidth = (width - 40 - 15) / 2;
+const cardWidth = (375 - 40 - 15) / 2;
+
 
 const AddFriends = () => {
   const [users, setUsers] = useState([]);

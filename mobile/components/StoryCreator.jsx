@@ -8,7 +8,6 @@ import {
   Image,
   Pressable,
   ActivityIndicator,
-  Dimensions,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -192,8 +191,6 @@ const StoryCreator = ({
 
 export default StoryCreator
 
-const { width, height } = Dimensions.get('window')
-
 const styles = createResponsiveStyleSheet({
   container: {
     flex: 1,
@@ -298,8 +295,8 @@ const styles = createResponsiveStyleSheet({
 
   // Text Story Canvas styles
   textStoryCanvas: {
-    width: width - 32,
-    height: height * 0.6,
+    width: 343,
+    height: 487,
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
