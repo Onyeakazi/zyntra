@@ -16,6 +16,7 @@ import {
   TextInput,
   FlatList
 } from 'react-native'
+import createResponsiveStyleSheet from '../utils/responsiveStyleSheet'
 import COLORS from '../constants/colors'
 import TYPOGRAPHY from '../constants/typography'
 import { Ionicons } from '@expo/vector-icons'
@@ -703,7 +704,7 @@ export default StoryViewer
 
 const { width, height } = Dimensions.get('window')
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyleSheet({
   container: {
     flex: 1,
     backgroundColor: '#000',

@@ -3,11 +3,11 @@ import {
   Dimensions,
   Image,
   StatusBar,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import createResponsiveStyleSheet from '../utils/responsiveStyleSheet';
 import COLORS from '../constants/colors';
 import { onboardingData } from '../data/onboarding';
 import { useRef } from 'react';
@@ -150,7 +150,7 @@ export default function Onboarding() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyleSheet({
   container: {
     flex: 1,
     backgroundColor: COLORS.bg,

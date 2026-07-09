@@ -1,4 +1,5 @@
-import { Dimensions, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator, RefreshControl, TextInput, Keyboard, Modal, Platform } from "react-native";
+import { Dimensions, FlatList, Image, Pressable, ScrollView, Text, View, ActivityIndicator, RefreshControl, TextInput, Keyboard, Modal, Platform } from "react-native";
+import createResponsiveStyleSheet from "../../utils/responsiveStyleSheet";
 import { StatusBar } from "expo-status-bar";
 import ScreenWrapper from "../../components/ScreenWrapper";
 import Search from "../../assets/vectors/search.svg";
@@ -1087,7 +1088,7 @@ export default function Index() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyleSheet({
   logoContainer: {
     flexDirection: "row",
     justifyContent: "space-between",

@@ -2,11 +2,11 @@ import {
   Image,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
   ActivityIndicator,
 } from "react-native";
+import createResponsiveStyleSheet from "../utils/responsiveStyleSheet";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import ScreenWrapper from "../components/ScreenWrapper";
@@ -447,7 +447,7 @@ const EditProfile = () => {
 
 export default EditProfile;
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyleSheet({
   loadingContainer: {
     flex: 1,
     justifyContent: "center",

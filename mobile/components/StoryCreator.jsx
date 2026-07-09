@@ -14,6 +14,7 @@ import {
   Platform,
   SafeAreaView
 } from 'react-native'
+import createResponsiveStyleSheet from '../utils/responsiveStyleSheet'
 import COLORS from '../constants/colors'
 import TYPOGRAPHY from '../constants/typography'
 import { Ionicons } from '@expo/vector-icons'
@@ -193,7 +194,7 @@ export default StoryCreator
 
 const { width, height } = Dimensions.get('window')
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyleSheet({
   container: {
     flex: 1,
     backgroundColor: '#1C1C1E',

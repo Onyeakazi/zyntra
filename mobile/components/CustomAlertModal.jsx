@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Platform } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, Animated, Dimensions, Platform, StyleSheet } from 'react-native';
+import createResponsiveStyleSheet from '../utils/responsiveStyleSheet';
 import { Ionicons } from '@expo/vector-icons';
 import COLORS from '../constants/colors';
 import TYPOGRAPHY from '../constants/typography';
@@ -183,7 +184,7 @@ const CustomAlertModal = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyleSheet({
   overlay: {
     flex: 1,
     justifyContent: 'center',

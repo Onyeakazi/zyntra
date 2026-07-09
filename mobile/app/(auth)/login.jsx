@@ -1,4 +1,5 @@
-import { Image, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { Image, Pressable, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import createResponsiveStyleSheet from '../../utils/responsiveStyleSheet'
 import { router } from 'expo-router'
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import Logo from "../../assets/images/logo2.png";
@@ -65,6 +66,7 @@ const Login = () => {
     const [fullName, setFullName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+
     const [fieldError, setFieldError] = useState({
         fullName: false,
         email: false,
@@ -344,7 +346,7 @@ const Login = () => {
 
   return (
     <View style={{flex: 1}}>
-        <View style={{paddingVertical: 30}}>
+        <View style={{paddingHorizontal: 20, paddingVertical: 30}}>
             <Image 
                 source={Logo}
                 style={{
@@ -355,34 +357,23 @@ const Login = () => {
             />
         </View>
 
-        <View>
-            <View style={styles.authBtns}>
+        <View style={{paddingHorizontal: 20}}>
+            {/* Tab buttons — each has its own bottom border; blue when active, transparent otherwise */}
+            <View style={[styles.authBtns, { borderBottomWidth: 2, borderBottomColor: '#C4C4C4' }]}>
                 <TouchableOpacity 
-                    onPress={()=> 
-                        setActive("signin")
-                    }
+                    onPress={() => setActive("signin")}
+                    style={[styles.tabBtn, active === "signin" && styles.tabBtnActive]}
                 >
                     <Text style={[styles.btn, active === "signin" && styles.activeText]}>Sign in</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity 
-                    onPress={()=> setActive("signup")}
+                    onPress={() => setActive("signup")}
+                    style={[styles.tabBtn, active === "signup" && styles.tabBtnActive]}
                 >
                     <Text style={[styles.btn, active === "signup" && styles.activeText]}>Sign up</Text>
                 </TouchableOpacity>
             </View>
-
-            <View style={styles.lines}></View>
-            <View
-                style={[
-                    styles.active,
-                    {
-                        position: "absolute",
-                        top: 40,
-                        left: active === "signin" ? 0 : "26%",
-                    },
-                ]}
-            />
 
             {active === "signin" ? (
                 <View>
@@ -444,9 +435,9 @@ const Login = () => {
                     </View>
 
                     <View style={{flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 10, marginTop: 15}}>
-                        <View style={{marginVertical: 20, height: 1, backgroundColor: "#C4C4C4", width: "25%"}}/>
+                        <View style={{flex: 1, height: 1, backgroundColor: "#C4C4C4"}}/>
                         <Text style={{textAlign: "center", fontFamily: TYPOGRAHPY.regular, fontSize: 16, color: "#949494"}}>Or continue with</Text>
-                        <View style={{marginVertical: 20, height: 1, backgroundColor: "#C4C4C4", width: "25%"}}/>
+                        <View style={{flex: 1, height: 1, backgroundColor: "#C4C4C4"}}/>
                     </View>
 
                     <View style={{flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 20}}>
@@ -533,9 +524,9 @@ const Login = () => {
                     </View>
 
                     <View style={{flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 10, marginTop: 15}}>
-                        <View style={{marginVertical: 20, height: 1, backgroundColor: "#C4C4C4", width: "25%"}}/>
+                        <View style={{flex: 1, height: 1, backgroundColor: "#C4C4C4"}}/>
                         <Text style={{textAlign: "center", fontFamily: TYPOGRAHPY.regular, fontSize: 16, color: "#949494"}}>Or Sign up with</Text>
-                        <View style={{marginVertical: 20, height: 1, backgroundColor: "#C4C4C4", width: "25%"}}/>
+                        <View style={{flex: 1, height: 1, backgroundColor: "#C4C4C4"}}/>
                     </View>
 
                     <View style={{flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 20}}>
@@ -567,12 +558,23 @@ const Login = () => {
 
 export default Login
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyleSheet({
     authBtns: {
         flexDirection: "row",
-        justifyContent: "end",
+        justifyContent: "flex-start",
         alignItems: "center",
         gap: 30,
+    },
+
+    tabBtn: {
+        paddingBottom: 10,
+        marginBottom: -2,
+        borderBottomWidth: 2,
+        borderBottomColor: 'transparent',
+    },
+
+    tabBtnActive: {
+        borderBottomColor: '#0779B8',
     },
 
     btn: {
@@ -591,7 +593,6 @@ const styles = StyleSheet.create({
     active: {
         backgroundColor: "#0779B8",
         height: 2,
-        width: "20%",
     },
 
     activeText: {

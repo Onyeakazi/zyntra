@@ -1,5 +1,6 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Image, Pressable, Text, View, StyleSheet } from 'react-native'
 import React from 'react'
+import createResponsiveStyleSheet from '../utils/responsiveStyleSheet'
 import COLORS from '../constants/colors'
 import TYPOGRAPHY from '../constants/typography'
 import { AntDesign } from '@expo/vector-icons'
@@ -81,7 +82,7 @@ const Story = ({
 
 export default Story
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyleSheet({
   card: {
     width: 100,
     height: 155,

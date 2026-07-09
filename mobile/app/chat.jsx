@@ -1,5 +1,4 @@
 import { 
-  StyleSheet, 
   Text, 
   View, 
   Pressable, 
@@ -13,6 +12,7 @@ import {
   DeviceEventEmitter,
   Keyboard
 } from 'react-native';
+import createResponsiveStyleSheet from '../utils/responsiveStyleSheet';
 import ScreenWrapper from '../components/ScreenWrapper';
 import StoryViewer from '../components/StoryViewer';
 import Preloader from '../components/Preloader';
@@ -1033,7 +1033,7 @@ const ChatRoom = () => {
 
 export default ChatRoom;
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyleSheet({
   keyboardContainer: {
     flex: 1,
     backgroundColor: '#FFFFFF',

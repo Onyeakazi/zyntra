@@ -1,4 +1,5 @@
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, Text, TouchableOpacity, View } from 'react-native';
+import createResponsiveStyleSheet from '../../utils/responsiveStyleSheet';
 import React, { useState } from 'react';
 import { router } from 'expo-router';
 import Logo from "../../assets/images/logo2.png";
@@ -137,7 +138,7 @@ const ForgotPassword = () => {
 
 export default ForgotPassword;
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyleSheet({
   container: {
     flex: 1,
     backgroundColor: '#fff',

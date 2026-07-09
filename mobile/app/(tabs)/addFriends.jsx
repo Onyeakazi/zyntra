@@ -1,6 +1,5 @@
 import { 
   Pressable, 
-  StyleSheet, 
   Text, 
   View, 
   Image, 
@@ -11,6 +10,7 @@ import {
   RefreshControl,
   Alert
 } from 'react-native';
+import createResponsiveStyleSheet from '../../utils/responsiveStyleSheet';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import Preloader from '../../components/Preloader';
 import { StatusBar } from 'expo-status-bar';
@@ -410,7 +410,7 @@ const AddFriends = () => {
 
 export default AddFriends;
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyleSheet({
   container: {
     flex: 1,
     paddingHorizontal: 20,

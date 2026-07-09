@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, Image, Text } from 'react-native';
+import { View, Animated, Image, Text } from 'react-native';
+import createResponsiveStyleSheet from '../utils/responsiveStyleSheet';
 import COLORS from '../constants/colors';
 import TYPOGRAPHY from '../constants/typography';
 import LogoIcon from '../assets/images/icon-only.png';
@@ -62,7 +63,7 @@ const Preloader = ({ size = 90, text }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyleSheet({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',

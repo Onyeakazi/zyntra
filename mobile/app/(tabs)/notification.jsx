@@ -1,5 +1,4 @@
 import { 
-  StyleSheet, 
   Text, 
   View, 
   FlatList, 
@@ -9,6 +8,7 @@ import {
   RefreshControl,
   Alert
 } from 'react-native';
+import createResponsiveStyleSheet from '../../utils/responsiveStyleSheet';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import Preloader from '../../components/Preloader';
 import { StatusBar } from 'expo-status-bar';
@@ -509,7 +509,7 @@ const NotificationScreen = () => {
 
 export default NotificationScreen;
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyleSheet({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',

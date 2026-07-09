@@ -1,5 +1,4 @@
 import {
-  StyleSheet,
   Text,
   View,
   FlatList,
@@ -11,6 +10,7 @@ import {
   Platform,
   RefreshControl
 } from 'react-native';
+import createResponsiveStyleSheet from '../utils/responsiveStyleSheet';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
@@ -805,7 +805,7 @@ export default function Comments() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyleSheet({
   container: {
     flex: 1,
     backgroundColor: "#FFFFFF",

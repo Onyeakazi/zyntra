@@ -1,4 +1,5 @@
-import { Animated, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native'
+import { Animated, TextInput, TouchableOpacity, View } from 'react-native'
+import createResponsiveStyleSheet from '../utils/responsiveStyleSheet'
 import { useRef, useEffect, useState } from 'react'
 import TYPOGRAPHY from '../constants/typography'
 import { Ionicons } from "@expo/vector-icons";
@@ -79,7 +80,7 @@ const FloatingInput = ({ placeholder, value = "", onChangeText, onFocus, onBlur,
 
 export default FloatingInput
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyleSheet({
   container: {
     position: 'relative',
     marginVertical: 10,

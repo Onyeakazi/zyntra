@@ -1,5 +1,4 @@
 import {
-  StyleSheet,
   Text,
   View,
   FlatList,
@@ -12,6 +11,7 @@ import {
   DeviceEventEmitter,
   Alert
 } from 'react-native';
+import createResponsiveStyleSheet from '../../utils/responsiveStyleSheet';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import StoryViewer from '../../components/StoryViewer';
 import { StatusBar } from 'expo-status-bar';
@@ -511,7 +511,7 @@ const MessageScreen = () => {
 
     return (
       <View style={styles.chatCard}>
-        <Pressable 
+        <Pressable
           onPress={() => {
             const userGroupIndex = activeStoryGroups.findIndex(g => g.userId === recipient.id);
             if (userGroupIndex !== -1) {
@@ -558,7 +558,7 @@ const MessageScreen = () => {
               style={[styles.messageText, isUnread ? styles.unreadTextBold : null]}
               numberOfLines={1}
             >
-              {item.last_message 
+              {item.last_message
                 ? (item.last_sender_id === currentUserId ? `You: ${item.last_message}` : item.last_message)
                 : "No messages yet"
               }
@@ -921,7 +921,7 @@ const MessageScreen = () => {
 
 export default MessageScreen;
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyleSheet({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',

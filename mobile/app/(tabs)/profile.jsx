@@ -2,7 +2,6 @@ import {
   FlatList,
   Image,
   Pressable,
-  StyleSheet,
   Text,
   View,
   ActivityIndicator,
@@ -13,7 +12,9 @@ import {
   Alert,
   SafeAreaView,
   RefreshControl,
+  StyleSheet,
 } from "react-native";
+import createResponsiveStyleSheet from "../../utils/responsiveStyleSheet";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
@@ -69,6 +70,8 @@ const Profile = () => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [selectedPreviewPhoto, setSelectedPreviewPhoto] = useState(null);
   const [isOptionsMenuVisible, setIsOptionsMenuVisible] = useState(false);
+  const [photoHistoryList, setPhotoHistoryList] = useState([]);
+  const [photoHistoryIndex, setPhotoHistoryIndex] = useState(0);
 
   const viewabilityConfig = useRef({
     itemVisiblePercentThreshold: 70,
@@ -166,23 +169,21 @@ const Profile = () => {
       const targetUserId = userId || auth.currentUser?.uid;
       const contentText = isAvatar ? "updated their profile picture" : "updated their cover photo";
       
-      const { data: existingPost, error: fetchError } = await supabase
+      // Fetch all posts matching the content type to enable swiping
+      const { data: posts, error: fetchError } = await supabase
         .from("posts")
         .select("*")
         .eq("user_id", targetUserId)
         .eq("content", contentText)
-        .eq("media_url", imageUrl)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .order("created_at", { ascending: false });
         
-      if (existingPost) {
-        setLoading(false);
-        
-        // Map user object into the post for Feed viewer compatibility
-        const formattedPost = {
-          ...existingPost,
-          author_id: existingPost.user_id,
+      if (fetchError) throw fetchError;
+
+      if (posts && posts.length > 0) {
+        // Map user object into all posts for Feed viewer compatibility
+        const formattedPosts = posts.map(post => ({
+          ...post,
+          author_id: post.user_id,
           user: {
             name: userData?.full_name || "User",
             username: userData?.username || "username",
@@ -190,30 +191,22 @@ const Profile = () => {
               ? { uri: userData.avatar_url }
               : require("../../assets/images/default.png"),
           },
-          image: existingPost.media_url ? { uri: existingPost.media_url } : null,
-          time: formatPostTime(existingPost.created_at)
-        };
-        
-        setActiveViewPost(formattedPost);
-      } else {
-        const { data: newPost, error: insertError } = await supabase
-          .from("posts")
-          .insert({
+          image: post.media_url ? { uri: post.media_url } : null,
+          time: formatPostTime(post.created_at)
+        }));
+
+        // Find the index of the clicked image
+        let initialIndex = formattedPosts.findIndex(p => p.media_url === imageUrl);
+        if (initialIndex === -1) {
+          // Fallback in case current avatar/banner url is not in the posts history yet
+          const fallbackPost = {
+            id: 'temp-' + Date.now(),
             user_id: targetUserId,
+            author_id: targetUserId,
             content: contentText,
             media_url: imageUrl,
-            media_type: "image",
-            created_at: new Date().toISOString()
-          })
-          .select()
-          .single();
-          
-        setLoading(false);
-        if (newPost) {
-          // Map user object into the post for Feed viewer compatibility
-          const formattedPost = {
-            ...newPost,
-            author_id: newPost.user_id,
+            media_type: 'image',
+            created_at: new Date().toISOString(),
             user: {
               name: userData?.full_name || "User",
               username: userData?.username || "username",
@@ -221,17 +214,44 @@ const Profile = () => {
                 ? { uri: userData.avatar_url }
                 : require("../../assets/images/default.png"),
             },
-            image: newPost.media_url ? { uri: newPost.media_url } : null,
-            time: formatPostTime(newPost.created_at)
+            image: { uri: imageUrl },
+            time: formatPostTime(new Date().toISOString())
           };
-          
-          setActiveViewPost(formattedPost);
+          formattedPosts.unshift(fallbackPost);
+          initialIndex = 0;
         }
+
+        setPhotoHistoryList(formattedPosts);
+        setPhotoHistoryIndex(initialIndex);
+        setActiveViewPost(formattedPosts[initialIndex]);
+      } else {
+        // Fallback if no posts exist at all
+        const fallbackPost = {
+          id: 'temp-' + Date.now(),
+          user_id: targetUserId,
+          author_id: targetUserId,
+          content: contentText,
+          media_url: imageUrl,
+          media_type: 'image',
+          created_at: new Date().toISOString(),
+          user: {
+            name: userData?.full_name || "User",
+            username: userData?.username || "username",
+            profilePic: userData?.avatar_url && userData.avatar_url.trim() !== ""
+              ? { uri: userData.avatar_url }
+              : require("../../assets/images/default.png"),
+          },
+          image: { uri: imageUrl },
+          time: formatPostTime(new Date().toISOString())
+        };
+        const list = [fallbackPost];
+        setPhotoHistoryList(list);
+        setPhotoHistoryIndex(0);
+        setActiveViewPost(fallbackPost);
       }
-
-
     } catch (err) {
       console.error("Error viewing photo post:", err);
+    } finally {
       setLoading(false);
     }
   };
@@ -512,7 +532,6 @@ const Profile = () => {
       setCurrentMenuView("menu");
       setIsMenuVisible(false);
       fetchUserData();
-      if (onProfileImageUpdated) onProfileImageUpdated();
     } catch (err) {
       console.error("Error setting past photo:", err);
       Alert.alert("Error", "Failed to update photo. Please try again.");
@@ -935,8 +954,14 @@ const Profile = () => {
       {activeViewPost && (
         <Feed
           item={activeViewPost}
+          postItems={photoHistoryList}
+          initialPhotoViewerIndex={photoHistoryIndex}
           initialPhotoViewerVisible={true}
-          onClosePhotoViewer={() => setActiveViewPost(null)}
+          onClosePhotoViewer={() => {
+            setActiveViewPost(null);
+            setPhotoHistoryList([]);
+            setPhotoHistoryIndex(0);
+          }}
           onProfileImageUpdated={fetchUserData}
         />
       )}
@@ -1155,56 +1180,62 @@ const Profile = () => {
 
             {/* Custom Dropdown Option Overlay */}
             {isOptionsMenuVisible && selectedPreviewPhoto && (
-              <View style={styles.dropdownCard}>
-                {selectedFolder === "avatar" && (
-                  <TouchableOpacity
-                    style={styles.dropdownItem}
-                    onPress={() => {
-                      setIsOptionsMenuVisible(false);
-                      handleSelectPastPhoto(selectedPreviewPhoto.media_url, true);
-                    }}
-                  >
-                    <Ionicons name="person-circle-outline" size={18} color="#FFFFFF" />
-                    <Text style={styles.dropdownItemText}>Set as Profile Picture</Text>
-                  </TouchableOpacity>
-                )}
-
-                {selectedFolder === "banner" && (
-                  <TouchableOpacity
-                    style={styles.dropdownItem}
-                    onPress={() => {
-                      setIsOptionsMenuVisible(false);
-                      handleSelectPastPhoto(selectedPreviewPhoto.media_url, false);
-                    }}
-                  >
-                    <Ionicons name="image-outline" size={18} color="#FFFFFF" />
-                    <Text style={styles.dropdownItemText}>Set as Cover Photo</Text>
-                  </TouchableOpacity>
-                )}
-
-                {isOwnProfile && (
-                  <TouchableOpacity
-                    style={[styles.dropdownItem, styles.dropdownItemDestructive]}
-                    onPress={() => {
-                      setIsOptionsMenuVisible(false);
-                      handleDeletePhoto(selectedPreviewPhoto);
-                    }}
-                  >
-                    <Ionicons name="trash-outline" size={18} color="#EF4444" />
-                    <Text style={[styles.dropdownItemText, { color: '#EF4444' }]}>Delete Photo</Text>
-                  </TouchableOpacity>
-                )}
-
-                <View style={styles.dropdownDivider} />
-
-                <TouchableOpacity
-                  style={styles.dropdownItem}
+              <>
+                <Pressable
+                  style={StyleSheet.absoluteFillObject}
                   onPress={() => setIsOptionsMenuVisible(false)}
-                >
-                  <Ionicons name="close-outline" size={18} color="#9CA3AF" />
-                  <Text style={[styles.dropdownItemText, { color: '#9CA3AF' }]}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
+                />
+                <View style={styles.dropdownCard}>
+                  {selectedFolder === "avatar" && (
+                    <TouchableOpacity
+                      style={styles.dropdownItem}
+                      onPress={() => {
+                        setIsOptionsMenuVisible(false);
+                        handleSelectPastPhoto(selectedPreviewPhoto.media_url, true);
+                      }}
+                    >
+                      <Ionicons name="person-circle-outline" size={18} color="#FFFFFF" />
+                      <Text style={styles.dropdownItemText}>Set as Profile Picture</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {selectedFolder === "banner" && (
+                    <TouchableOpacity
+                      style={styles.dropdownItem}
+                      onPress={() => {
+                        setIsOptionsMenuVisible(false);
+                        handleSelectPastPhoto(selectedPreviewPhoto.media_url, false);
+                      }}
+                    >
+                      <Ionicons name="image-outline" size={18} color="#FFFFFF" />
+                      <Text style={styles.dropdownItemText}>Set as Cover Photo</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {isOwnProfile && (
+                    <TouchableOpacity
+                      style={[styles.dropdownItem, styles.dropdownItemDestructive]}
+                      onPress={() => {
+                        setIsOptionsMenuVisible(false);
+                        handleDeletePhoto(selectedPreviewPhoto);
+                      }}
+                    >
+                      <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                      <Text style={[styles.dropdownItemText, { color: '#EF4444' }]}>Delete Photo</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  <View style={styles.dropdownDivider} />
+
+                  <TouchableOpacity
+                    style={styles.dropdownItem}
+                    onPress={() => setIsOptionsMenuVisible(false)}
+                  >
+                    <Ionicons name="close-outline" size={18} color="#9CA3AF" />
+                    <Text style={[styles.dropdownItemText, { color: '#9CA3AF' }]}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
             )}
           </SafeAreaView>
         </Pressable>
@@ -1215,7 +1246,7 @@ const Profile = () => {
 
 export default Profile;
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyleSheet({
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -1325,11 +1356,13 @@ const styles = StyleSheet.create({
   },
 
   editBtn: {
+    flex: 1,
     borderWidth: 1,
     borderColor: COLORS.gray,
     borderRadius: 10,
     paddingVertical: verticalScale(12),
-    paddingHorizontal: scale(80),
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   settingIcon: {

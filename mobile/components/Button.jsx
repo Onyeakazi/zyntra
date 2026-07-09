@@ -1,5 +1,6 @@
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native'
 import TYPOGRAPHY from '../constants/typography'
+import createResponsiveStyleSheet from '../utils/responsiveStyleSheet'
 
 const Button = ({
   bgColor,
@@ -43,7 +44,7 @@ const Button = ({
 
 export default Button
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyleSheet({
   btn: {
     paddingVertical: 20,
     borderRadius: 15,
