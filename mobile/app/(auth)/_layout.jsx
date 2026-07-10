@@ -1,14 +1,14 @@
-import { SafeAreaView } from 'react-native-safe-area-context'
 import { Slot } from 'expo-router'
-import { StatusBar } from 'react-native'
+import { View } from 'react-native'
+import ScreenWrapper from '../../components/ScreenWrapper'
 
 const _layout = () => {
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: 'white', paddingHorizontal: 35 }}>
-        <StatusBar barStyle="dark-content" />
+    <ScreenWrapper>
+      <View style={{ flex: 1, paddingHorizontal: 20 }}>
         <Slot />
-    </SafeAreaView>
-
+      </View>
+    </ScreenWrapper>
   )
 }
 

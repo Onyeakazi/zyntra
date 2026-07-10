@@ -5,7 +5,7 @@
     "owner": "godswill147",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/logo.png",
+    "icon": "./assets/images/zyntra-square-icon.png",
     "scheme": "zyntra",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -19,9 +19,7 @@
       "targetSdkVersion": 34,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/logo.png",
-        "backgroundImage": "./assets/images/icon-only.png",
-        "monochromeImage": "./assets/images/icon-only.png"
+        "foregroundImage": "./assets/images/zyntra-square-icon.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -36,7 +34,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/full-logo.png",
+          "image": "./assets/images/zyntra-square-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
@@ -47,7 +45,13 @@
       ],
       "expo-web-browser",
       "expo-font",
-      
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon-only.png",
+          "color": "#5096F1"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
@@ -65,6 +69,12 @@
       "eas": {
         "projectId": "a8871662-bb54-423d-81ca-a81675b13e73"
       }
-    } 
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/a8871662-bb54-423d-81ca-a81675b13e73"
+    }
   }
 }

@@ -2,7 +2,7 @@ import { Image, Pressable, Text, TextInput, TouchableOpacity, View } from 'react
 import createResponsiveStyleSheet from '../../utils/responsiveStyleSheet'
 import { router } from 'expo-router'
 import Constants, { ExecutionEnvironment } from 'expo-constants';
-import Logo from "../../assets/images/logo2.png";
+import Logo from "../../assets/images/brand.png";
 import TYPOGRAHPY from "../../constants/typography";
 import { useEffect, useState } from 'react';
 import Button from '../../components/Button';
@@ -346,7 +346,7 @@ const Login = () => {
 
   return (
     <View style={{flex: 1}}>
-        <View style={{paddingHorizontal: 20, paddingVertical: 30}}>
+        <View style={{paddingVertical: 30}}>
             <Image 
                 source={Logo}
                 style={{
@@ -357,7 +357,7 @@ const Login = () => {
             />
         </View>
 
-        <View style={{paddingHorizontal: 20}}>
+        <View style={{flex: 1}}>
             {/* Tab buttons — each has its own bottom border; blue when active, transparent otherwise */}
             <View style={[styles.authBtns, { borderBottomWidth: 2, borderBottomColor: '#C4C4C4' }]}>
                 <TouchableOpacity 
@@ -440,7 +440,7 @@ const Login = () => {
                         <View style={{flex: 1, height: 1, backgroundColor: "#C4C4C4"}}/>
                     </View>
 
-                    <View style={{flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 20}}>
+                    <View style={{flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 20, marginTop: 15}}>
                         <Button 
                             text={"Google"}
                             bgColor={"#FFFFFF"}
@@ -529,7 +529,7 @@ const Login = () => {
                         <View style={{flex: 1, height: 1, backgroundColor: "#C4C4C4"}}/>
                     </View>
 
-                    <View style={{flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 20}}>
+                    <View style={{flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 20, marginTop: 15}}>
                         <Button 
                             text={"Google"}
                             bgColor={"#FFFFFF"}

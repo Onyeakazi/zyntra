@@ -2,7 +2,7 @@ import { Image, Text, TouchableOpacity, View } from 'react-native';
 import createResponsiveStyleSheet from '../../utils/responsiveStyleSheet';
 import React, { useState } from 'react';
 import { router } from 'expo-router';
-import Logo from "../../assets/images/logo2.png";
+import Logo from "../../assets/images/brand.png";
 import TYPOGRAPHY from "../../constants/typography";
 import COLORS from '../../constants/colors';
 import FloatingInput from '../../components/Input';
@@ -141,7 +141,6 @@ export default ForgotPassword;
 const styles = createResponsiveStyleSheet({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
     paddingTop: 30,
   },
   logoContainer: {

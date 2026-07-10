@@ -10,12 +10,28 @@
     },
     "preview": {
       "distribution": "internal",
+      "channel": "preview",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyDUXk4YL0xvswi95UgAWe-13mp6O_2HdkU",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "zyntra-33112.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "zyntra-33112",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "zyntra-33112.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "181580130241",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:181580130241:web:479b9e08575e3aecb2b140",
+        "EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID": "G-0Q9NM4NV76",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "181580130241-kjkm1f5niglr7ui8m5lv5oer8hsm7fet.apps.googleusercontent.com",
+        "EXPO_PUBLIC_ANDROID_CLIENT_ID": "181580130241-qfueb12js62tj6r5lto8u3mqv9vc2hgd.apps.googleusercontent.com",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://hdtpusakgajibsowwizb.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_PhtIB81Cyv8oXzCKa7XU6g_N_yAhNTz",
+        "EXPO_PUBLIC_BACKEND_URL": "https://zyntra-auth.onrender.com"
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "channel": "production"
     }
   },
   "submit": {

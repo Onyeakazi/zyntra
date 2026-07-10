@@ -89,7 +89,7 @@ const styles = createResponsiveStyleSheet({
   floatingPlaceholder: {
     position: 'absolute',
     left: 15,
-    backgroundColor: COLORS.transparent,
+    backgroundColor: '#ffffff', // Solid white to mask the border line behind the text
     paddingHorizontal: 4,
     color: '#999',
     fontFamily: TYPOGRAPHY.regular,
@@ -110,5 +110,6 @@ const styles = createResponsiveStyleSheet({
     borderColor: "#cfcdcd",
     borderRadius: 10,
     paddingHorizontal: 15,
+    backgroundColor: '#ffffff', // Solid white background to prevent transparent bleed-through
   },
 })
