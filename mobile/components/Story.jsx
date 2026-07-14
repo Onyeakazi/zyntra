@@ -33,7 +33,7 @@ const Story = ({
               <AntDesign name="plus" size={16} color="#fff" />
             </View>
           </View>
-          <Text style={styles.ownStoryText}>Add Story</Text>
+          <Text style={styles.ownStoryText}>{name || "Add Story"}</Text>
         </View>
       </Pressable>
     )
