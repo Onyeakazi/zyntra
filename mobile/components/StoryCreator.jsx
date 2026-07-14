@@ -17,6 +17,7 @@ import createResponsiveStyleSheet from '../utils/responsiveStyleSheet'
 import COLORS from '../constants/colors'
 import TYPOGRAPHY from '../constants/typography'
 import { Ionicons } from '@expo/vector-icons'
+import { useTranslation } from 'react-i18next'
 
 const BACKGROUND_COLORS = [
   '#FF5E36', // Coral
@@ -36,6 +37,7 @@ const StoryCreator = ({
   onShare,
   sharing = false
 }) => {
+  const { t } = useTranslation()
   const [caption, setCaption] = useState('')
   const [selectedBgColor, setSelectedBgColor] = useState(BACKGROUND_COLORS[0])
 
@@ -66,7 +68,7 @@ const StoryCreator = ({
       return (
         <View style={[styles.textStoryCanvas, { backgroundColor: selectedBgColor }]}>
           <TextInput
-            placeholder="Type your story..."
+            placeholder={t('settings.selectLanguage') === 'Select Language' ? 'Type your story...' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Escribe tu historia...' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Écrivez votre story...' : 'Escreva sua história...'}
             placeholderTextColor="rgba(255,255,255,0.6)"
             multiline
             maxLength={250}
@@ -92,7 +94,7 @@ const StoryCreator = ({
             />
             <View style={styles.videoOverlay}>
               <Ionicons name="play-circle-outline" size={80} color="#fff" />
-              <Text style={styles.videoLabel}>Video Story Selected</Text>
+              <Text style={styles.videoLabel}>{t('settings.selectLanguage') === 'Select Language' ? 'Video Story Selected' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Historia de video seleccionada' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Story vidéo sélectionnée' : 'História de vídeo selecionada'}</Text>
             </View>
           </View>
         ) : (
@@ -111,7 +113,7 @@ const StoryCreator = ({
         >
           <View style={styles.captionBoxContainer}>
             <TextInput
-              placeholder="Add a caption..."
+              placeholder={t('settings.selectLanguage') === 'Select Language' ? 'Add a caption...' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Añadir un subtítulo...' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Ajouter une légende...' : 'Adicionar uma legenda...'}
               placeholderTextColor="#9CA3AF"
               value={caption}
               onChangeText={setCaption}
@@ -137,7 +139,7 @@ const StoryCreator = ({
             <Ionicons name="close" size={28} color="#fff" />
           </Pressable>
           <Text style={styles.headerTitle}>
-            {mediaType === 'text' ? 'Text Story' : mediaType === 'video' ? 'Video Story' : 'Photo Story'}
+            {mediaType === 'text' ? t('feed.textStory') : mediaType === 'video' ? t('feed.videoStory') : t('feed.photoStory')}
           </Text>
           <Pressable
             style={[styles.shareBtn, sharing && styles.shareBtnDisabled]}
@@ -147,7 +149,7 @@ const StoryCreator = ({
             {sharing ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Text style={styles.shareBtnText}>Share</Text>
+              <Text style={styles.shareBtnText}>{t('feed.share')}</Text>
             )}
           </Pressable>
         </View>
@@ -160,7 +162,7 @@ const StoryCreator = ({
         {/* BOTTOM COLOR PALETTE (For text stories) */}
         {mediaType === 'text' && !sharing && (
           <View style={styles.paletteContainer}>
-            <Text style={styles.paletteLabel}>Select Background Color</Text>
+            <Text style={styles.paletteLabel}>{t('settings.selectLanguage') === 'Select Language' ? 'Select Background Color' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Seleccionar color de fondo' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Choisir la couleur de fond' : 'Selecionar cor de fundo'}</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}

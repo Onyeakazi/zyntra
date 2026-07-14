@@ -176,11 +176,6 @@ const CustomAlertModal = () => {
     return text;
   };
 
-  const [visible, setVisible] = useState(false);
-  const [title, setTitle] = useState('');
-  const [message, setMessage] = useState('');
-  const [buttons, setButtons] = useState([]);
-  const [options, setOptions] = useState(null);
   
   // Animation refs
   const scaleValue = useRef(new Animated.Value(0)).current;

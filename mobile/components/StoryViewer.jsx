@@ -19,6 +19,7 @@ import createResponsiveStyleSheet from '../utils/responsiveStyleSheet'
 import COLORS from '../constants/colors'
 import TYPOGRAPHY from '../constants/typography'
 import { Ionicons } from '@expo/vector-icons'
+import { useTranslation } from 'react-i18next'
 import { formatPostTime } from '../utils/timeFormat'
 import { supabase } from '../lib/supabase'
 import { auth } from '../config/firebase'
@@ -32,6 +33,7 @@ const StoryViewer = ({
   onClose,
   onStoryDeleted
 }) => {
+  const { t } = useTranslation()
   const [currentGroupIndex, setCurrentGroupIndex] = useState(initialGroupIndex)
   const [currentStoryIndex, setCurrentStoryIndex] = useState(initialStoryIndex)
   
@@ -547,7 +549,7 @@ const StoryViewer = ({
                               }}
                             >
                               <Ionicons name="trash-outline" size={16} color="red" />
-                              <Text style={[styles.optionText, { color: "red" }]}>Delete Story</Text>
+                              <Text style={[styles.optionText, { color: "red" }]}>{t('settings.selectLanguage') === 'Select Language' ? 'Delete Story' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Eliminar historia' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Supprimer la story' : 'Excluir história'}</Text>
                             </Pressable>
                           </View>
                         </>
@@ -573,7 +575,7 @@ const StoryViewer = ({
               {/* REACTIONS / DM INPUT OR VIEWS PILL */}
               {activeStory.isMocked ? (
                 <View style={styles.expiredStoryBottomContainer}>
-                  <Text style={styles.expiredStoryText}>This story has expired</Text>
+                  <Text style={styles.expiredStoryText}>{t('settings.selectLanguage') === 'Select Language' ? 'This story has expired' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Esta historia ha expirado' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Cette story a expiré' : 'Esta história expirou'}</Text>
                 </View>
               ) : activeStory.user_id !== currentUid ? (
                 <View style={styles.bottomInteractiveContainer}>
@@ -594,7 +596,7 @@ const StoryViewer = ({
                   <View style={styles.commentInputRow}>
                     <TextInput
                       style={styles.commentInput}
-                      placeholder={`Reply to ${activeGroup.user.full_name}...`}
+                      placeholder={`${t('settings.selectLanguage') === 'Select Language' ? 'Reply to' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Responder a' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Répondre à' : 'Responder a'} ${activeGroup.user.full_name}...`}
                       placeholderTextColor="rgba(255,255,255,0.6)"
                       value={commentText}
                       onChangeText={setCommentText}
@@ -633,7 +635,7 @@ const StoryViewer = ({
                     <Pressable style={styles.viewsIndicatorPill} onPress={() => setIsViewersModalOpen(true)}>
                       <Ionicons name="eye-outline" size={16} color="#fff" />
                       <Text style={styles.viewsIndicatorText}>
-                        {viewers.length} {viewers.length === 1 ? 'view' : 'views'}
+                        {viewers.length} {viewers.length === 1 ? (t('settings.selectLanguage') === 'Select Language' ? 'view' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'vista' : t('settings.selectLanguage') === 'Choisir la langue' ? 'vue' : 'visualização') : (t('settings.selectLanguage') === 'Select Language' ? 'views' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'vistas' : t('settings.selectLanguage') === 'Choisir la langue' ? 'vues' : 'visualizações')}
                       </Text>
                     </Pressable>
                   </View>
@@ -649,7 +651,7 @@ const StoryViewer = ({
             <View style={styles.viewersContent}>
               <View style={styles.viewersHeader}>
                 <Text style={styles.viewersTitle}>
-                  Story Viewers ({viewers.length})
+                  {t('settings.selectLanguage') === 'Select Language' ? 'Story Viewers' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Espectadores de historia' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Spectateurs de story' : 'Visualizadores de história'} ({viewers.length})
                 </Text>
                 <Pressable 
                   onPress={() => setIsViewersModalOpen(false)}
@@ -685,7 +687,7 @@ const StoryViewer = ({
                 ListEmptyComponent={
                   <View style={styles.emptyViewersContainer}>
                     <Ionicons name="people-outline" size={48} color="rgba(255,255,255,0.4)" />
-                    <Text style={styles.emptyViewersText}>No views yet</Text>
+                    <Text style={styles.emptyViewersText}>{t('settings.selectLanguage') === 'Select Language' ? 'No views yet' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Sin visitas aún' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Pas encore de vues' : 'Sem visualizações ainda'}</Text>
                   </View>
                 }
               />
