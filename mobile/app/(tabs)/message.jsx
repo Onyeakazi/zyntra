@@ -253,9 +253,15 @@ const MessageScreen = () => {
       const sorted = Object.values(grouped).sort((a, b) => {
         if (a.userId === currentUserId) return -1;
         if (b.userId === currentUserId) return 1;
-        const aLatest = a.stories[a.stories.length - 1].created_at;
-        const bLatest = b.stories[b.stories.length - 1].created_at;
-        return new Date(bLatest) - new Date(aLatest);
+        
+        const aLatest = a.stories && a.stories.length > 0 ? a.stories[a.stories.length - 1]?.created_at : null;
+        const bLatest = b.stories && b.stories.length > 0 ? b.stories[b.stories.length - 1]?.created_at : null;
+        
+        if (!aLatest && !bLatest) return 0;
+        if (!aLatest) return 1;
+        if (!bLatest) return -1;
+        
+        return new Date(bLatest).getTime() - new Date(aLatest).getTime();
       });
 
       setActiveStoryGroups(sorted);

@@ -161,9 +161,14 @@ export default function Index() {
         if (a.userId === currentUid) return -1;
         if (b.userId === currentUid) return 1;
         
-        const aLatest = a.stories[a.stories.length - 1].created_at;
-        const bLatest = b.stories[b.stories.length - 1].created_at;
-        return new Date(bLatest) - new Date(aLatest);
+        const aLatest = a.stories && a.stories.length > 0 ? a.stories[a.stories.length - 1]?.created_at : null;
+        const bLatest = b.stories && b.stories.length > 0 ? b.stories[b.stories.length - 1]?.created_at : null;
+        
+        if (!aLatest && !bLatest) return 0;
+        if (!aLatest) return 1;
+        if (!bLatest) return -1;
+        
+        return new Date(bLatest).getTime() - new Date(aLatest).getTime();
       });
 
       setActiveStories(sortedGroups);
@@ -171,7 +176,7 @@ export default function Index() {
       // Check milestones for user's own stories
       checkStoryViewMilestones();
     } catch (err) {
-      console.error("Error fetching active stories:", err);
+      console.error("Error fetching active stories detail:", err, err?.message, err?.stack);
     }
   }, [checkStoryViewMilestones]);
 
@@ -761,19 +766,19 @@ export default function Index() {
           <Story
             isOwnStory
             image={avatar ? { uri: avatar } : require("../../assets/images/default.png")}
-            name="Create Story"
+            name={t('feed.createStory')}
             onclick={() => setIsStoryTypePickerVisible(true)}
           />
           
           {/* Active Stories */}
           {activeStories.map((group, index) => {
-            const latestStory = group.stories[group.stories.length - 1];
+            const latestStory = group.stories && group.stories.length > 0 ? group.stories[group.stories.length - 1] : {};
             return (
               <Story
                 key={group.userId}
                 image={latestStory.media_type !== 'text' ? { uri: latestStory.media_url } : null}
                 avatar={group.user.avatar_url ? { uri: group.user.avatar_url } : require("../../assets/images/default.png")}
-                name={group.userId === auth.currentUser?.uid ? "Your Story" : group.user.full_name}
+                name={group.userId === auth.currentUser?.uid ? (t('settings.selectLanguage') === 'Select Language' ? 'Your Story' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Tu historia' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Votre Story' : 'Sua história') : group.user.full_name}
                 mediaType={latestStory.media_type}
                 backgroundColor={latestStory.background_color}
                 caption={latestStory.caption}
