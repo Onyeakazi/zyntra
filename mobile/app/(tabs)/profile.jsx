@@ -40,6 +40,8 @@ import { signOut } from "firebase/auth";
 import { supabase } from "../../lib/supabase";
 import { acceptConnectionInDB } from "../../utils/connectionHelpers";
 import { formatPostTime } from "../../utils/timeFormat";
+import { useTranslation } from 'react-i18next';
+import LanguageSelectorModal from '../../components/LanguageSelectorModal';
 
 const Profile = () => {
   const { userId } = useLocalSearchParams();
@@ -64,6 +66,8 @@ const Profile = () => {
   const [activeViewablePostId, setActiveViewablePostId] = useState(null);
 
   // Settings menu and album history states
+  const { t } = useTranslation();
+  const [isLanguageModalVisible, setIsLanguageModalVisible] = useState(false);
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [currentMenuView, setCurrentMenuView] = useState("menu"); // "menu", "folders", "grid"
   const [selectedFolder, setSelectedFolder] = useState("avatar"); // "avatar", "banner"
@@ -1032,7 +1036,7 @@ const Profile = () => {
                   { label: "Search Profile", icon: "search-outline", action: () => Alert.alert("Search Profile", "Profile searching is available on the Home tab.") },
                   { label: "Settings", icon: "settings-outline", action: () => Alert.alert("Settings", "General settings coming soon.") },
                   { label: "About Us", icon: "information-circle-outline", action: () => Alert.alert("About Us", "Zyntra is a premium professional networking platform.") },
-                  { label: "Language", icon: "globe-outline", action: () => Alert.alert("Language", "English is currently the active language.") },
+                  { label: t('settings.language'), icon: "globe-outline", action: () => { setIsMenuVisible(false); setIsLanguageModalVisible(true); } },
                   { label: "Log Out", icon: "log-out-outline", action: () => { setIsMenuVisible(false); handleLogout(); }, isRed: true },
                 ];
 
@@ -1134,6 +1138,11 @@ const Profile = () => {
           </View>
         </SafeAreaView>
       </Modal>
+
+      <LanguageSelectorModal
+        visible={isLanguageModalVisible}
+        onClose={() => setIsLanguageModalVisible(false)}
+      />
 
       {/* 2. Fullscreen Preview and Options Modal */}
       <Modal

@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import '../lib/i18n';
 import { ActivityIndicator, View, Alert } from 'react-native';
 import {
   Inter_400Regular,

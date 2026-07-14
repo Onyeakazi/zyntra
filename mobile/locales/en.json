@@ -1,0 +1,35 @@
+{
+  "onboarding": {
+    "slide2": {
+      "title": "Connect with Friends",
+      "description": "Expand your network and connect with people who share your interests."
+    },
+    "slide3": {
+      "title": "Share Your Moments",
+      "description": "Share your thoughts, photos, and videos with your friends and followers."
+    },
+    "slide4": {
+      "title": "Discover New Content",
+      "description": "Explore a wide range of content and find new things that interest you."
+    },
+    "joinNow": "Join Now",
+    "signIn": "Sign In"
+  },
+  "auth": {
+    "welcomeBack": "Welcome back!",
+    "loginTitle": "Login to your account",
+    "emailLabel": "Email Address",
+    "emailPlaceholder": "Enter your email",
+    "passwordLabel": "Password",
+    "passwordPlaceholder": "Enter your password",
+    "orContinueWith": "Or continue with",
+    "googleAuth": "Continue with Google",
+    "forgotPassword": "Forgot Password?",
+    "dontHaveAccount": "Don't have an account?",
+    "createOne": "Create one"
+  },
+  "settings": {
+    "language": "Language",
+    "selectLanguage": "Select Language"
+  }
+}

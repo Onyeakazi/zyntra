@@ -5,6 +5,7 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 import Logo from "../../assets/images/brand.png";
 import TYPOGRAHPY from "../../constants/typography";
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Button from '../../components/Button';
 import GoogleIcon from "../../assets/vectors/google.svg";
 import FloatingInput from '../../components/Input';
@@ -61,6 +62,7 @@ const mapAuthErrorToMessage = (error) => {
 };
 
 const Login = () => {
+    const { t } = useTranslation();
     const [active, setActive] = useState("signin");
     const [isFocused, setIsFocused] = useState(false);
     const [fullName, setFullName] = useState("");
@@ -364,14 +366,14 @@ const Login = () => {
                     onPress={() => setActive("signin")}
                     style={[styles.tabBtn, active === "signin" && styles.tabBtnActive]}
                 >
-                    <Text style={[styles.btn, active === "signin" && styles.activeText]}>Sign in</Text>
+                    <Text style={[styles.btn, active === "signin" && styles.activeText]}>{t('onboarding.signIn')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity 
                     onPress={() => setActive("signup")}
                     style={[styles.tabBtn, active === "signup" && styles.tabBtnActive]}
                 >
-                    <Text style={[styles.btn, active === "signup" && styles.activeText]}>Sign up</Text>
+                    <Text style={[styles.btn, active === "signup" && styles.activeText]}>{t('onboarding.joinNow')}</Text>
                 </TouchableOpacity>
             </View>
 
@@ -380,7 +382,7 @@ const Login = () => {
                     <View style={styles.inputField}>
 
                         <FloatingInput
-                            placeholder="Email"
+                            placeholder={t('auth.emailPlaceholder')}
                             value={signinData.email}
                             onChangeText={(text) => {
                                 setEmail(text);
@@ -394,7 +396,7 @@ const Login = () => {
                         />
 
                         <FloatingInput
-                            placeholder="Password"
+                            placeholder={t('auth.passwordPlaceholder')}
                             value={signinData.password}
                             onChangeText={(text) => {
                                 setPassword(text);
@@ -418,14 +420,14 @@ const Login = () => {
                             <TouchableOpacity 
                                 onPress={()=> router.push("/(auth)/forgotpassword")}
                             >
-                                <Text style={{textAlign: "right", fontFamily: TYPOGRAHPY.semiBold, fontSize: 16}}>Forgot Password?</Text>
+                                <Text style={{textAlign: "right", fontFamily: TYPOGRAHPY.semiBold, fontSize: 16}}>{t('auth.forgotPassword')}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
 
                     <View style={{marginTop: 40}}>
                         <Button 
-                            text={"Login"}
+                            text={t('onboarding.signIn')}
                             action={handleSignin}
                             bgColor={"#438def"}
                             textColor={"#FFFFFF"}
@@ -436,13 +438,13 @@ const Login = () => {
 
                     <View style={{flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 10, marginTop: 15}}>
                         <View style={{flex: 1, height: 1, backgroundColor: "#C4C4C4"}}/>
-                        <Text style={{textAlign: "center", fontFamily: TYPOGRAHPY.regular, fontSize: 16, color: "#949494"}}>Or continue with</Text>
+                        <Text style={{textAlign: "center", fontFamily: TYPOGRAHPY.regular, fontSize: 16, color: "#949494"}}>{t('auth.orContinueWith')}</Text>
                         <View style={{flex: 1, height: 1, backgroundColor: "#C4C4C4"}}/>
                     </View>
 
                     <View style={{flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 20, marginTop: 15}}>
                         <Button 
-                            text={"Google"}
+                            text={t('auth.googleAuth')}
                             bgColor={"#FFFFFF"}
                             textColor={"#656F78"}
                             icon={<GoogleIcon width={16} height={16}/>}
@@ -453,9 +455,9 @@ const Login = () => {
 
                     <View style={{flexDirection: "row", justifyContent: "center", marginTop: 30}}>
                         <Text style={{fontFamily: TYPOGRAHPY.medium, fontSize: 16, color: "#656F78"}}>
-                            {"Don't have an Account "}
+                            {t('auth.dontHaveAccount') + " "}
                             <Text onPress={() => setActive("signup")} style={{ color: "#5398F1" }}>
-                                Sign Up
+                                {t('auth.createOne')}
                             </Text>
                         </Text>
                     </View>

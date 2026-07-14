@@ -1,0 +1,35 @@
+{
+  "onboarding": {
+    "slide2": {
+      "title": "Conecte-se com Amigos",
+      "description": "Expanda sua rede e conecte-se com pessoas que compartilham seus interesses."
+    },
+    "slide3": {
+      "title": "Compartilhe seus Momentos",
+      "description": "Compartilhe seus pensamentos, fotos e vídeos com seus amigos e seguidores."
+    },
+    "slide4": {
+      "title": "Descubra Novo Conteúdo",
+      "description": "Explore uma ampla variedade de conteúdo e encontre coisas novas do seu interesse."
+    },
+    "joinNow": "Participar Agora",
+    "signIn": "Entrar"
+  },
+  "auth": {
+    "welcomeBack": "Bem-vindo de volta!",
+    "loginTitle": "Faça login na sua conta",
+    "emailLabel": "Endereço de E-mail",
+    "emailPlaceholder": "Digite seu e-mail",
+    "passwordLabel": "Senha",
+    "passwordPlaceholder": "Digite sua senha",
+    "orContinueWith": "Ou continuar com",
+    "googleAuth": "Continuar com Google",
+    "forgotPassword": "Esqueceu sua senha?",
+    "dontHaveAccount": "Não tem uma conta?",
+    "createOne": "Criar uma"
+  },
+  "settings": {
+    "language": "Idioma",
+    "selectLanguage": "Selecionar Idioma"
+  }
+}

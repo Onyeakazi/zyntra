@@ -10,20 +10,20 @@ export const onboardingData = [
     },
     {
         id: "2",
-        title: "Connect with Friends",
-        description: "Expand your network and connect with people who share your interests.",
+        titleKey: "onboarding.slide2.title",
+        descriptionKey: "onboarding.slide2.description",
         image: Splash2,
     },
     {
         id: "3",
-        title: "Share Your Moments",
-        description: "Share your thoughts, photos, and videos with your friends and followers.",
+        titleKey: "onboarding.slide3.title",
+        descriptionKey: "onboarding.slide3.description",
         image: Splash3,
     },
     {
         id: "4",
-        title: "Discover New Content",
-        description: "Explore a wide range of content and find new things that interest you.",
+        titleKey: "onboarding.slide4.title",
+        descriptionKey: "onboarding.slide4.description",
         image: Splash4,
     }
 ]

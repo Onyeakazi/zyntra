@@ -10,10 +10,13 @@ import {
 import createResponsiveStyleSheet from '../utils/responsiveStyleSheet';
 import COLORS from '../constants/colors';
 import { onboardingData } from '../data/onboarding';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import Logo from '../assets/images/logo1.png';
 import { router } from 'expo-router';
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
+import LanguageSelectorModal from '../components/LanguageSelectorModal';
 
 const { width } = Dimensions.get('window');
 
@@ -21,6 +24,8 @@ const logoWidth = width * 0.4;
 
 
 export default function Onboarding() {
+  const { t, i18n } = useTranslation();
+  const [isLanguageModalVisible, setIsLanguageModalVisible] = useState(false);
   const scrollX = useRef(new Animated.Value(0)).current;
 
   const completeOnboarding = async (route) => {
@@ -96,10 +101,10 @@ export default function Onboarding() {
               {/* Skip first */}
               {index !== 0 && (
                 <View style={styles.textContainer}>
-                  <Text style={styles.title}>{item.title}</Text>
+                  <Text style={styles.title}>{t(item.titleKey)}</Text>
 
                   <Text style={styles.text}>
-                    {item.description}
+                    {t(item.descriptionKey)}
                   </Text>
 
                   <TouchableOpacity
@@ -107,14 +112,14 @@ export default function Onboarding() {
                     onPress={() => completeOnboarding("/(auth)/login")}
 
                   >
-                    <Text style={styles.buttonText}>Join Now</Text>
+                    <Text style={styles.buttonText}>{t('onboarding.joinNow')}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.buttonOutline}
                     onPress={() => completeOnboarding("/(auth)/login")}
                   >
-                    <Text style={styles.buttonOutlineText}>Sign In</Text>
+                    <Text style={styles.buttonOutlineText}>{t('onboarding.signIn')}</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -146,6 +151,23 @@ export default function Onboarding() {
           );
         })}
       </View>
+
+      {/* Floating Language Button */}
+      <TouchableOpacity
+        style={styles.languageButton}
+        onPress={() => setIsLanguageModalVisible(true)}
+      >
+        <Ionicons name="globe-outline" size={18} color="#FAFAFA" />
+        <Text style={styles.languageText}>
+          {(i18n.language || 'en').substring(0, 2).toUpperCase()}
+        </Text>
+      </TouchableOpacity>
+
+      {/* Reusable Selector Modal */}
+      <LanguageSelectorModal
+        visible={isLanguageModalVisible}
+        onClose={() => setIsLanguageModalVisible(false)}
+      />
     </View>
   );
 }
@@ -220,5 +242,28 @@ const styles = createResponsiveStyleSheet({
     borderRadius: 3,
     backgroundColor: COLORS.primary,
     marginHorizontal: 4,
+  },
+
+  languageButton: {
+    position: 'absolute',
+    top: 55,
+    right: 20,
+    zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(10, 14, 26, 0.45)',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    gap: 6,
+  },
+
+  languageText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FAFAFA',
+    letterSpacing: 0.5,
   },
 });
