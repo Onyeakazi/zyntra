@@ -12,6 +12,7 @@ import {
   DeviceEventEmitter,
   Keyboard
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import createResponsiveStyleSheet from '../utils/responsiveStyleSheet';
 import ScreenWrapper from '../components/ScreenWrapper';
 import StoryViewer from '../components/StoryViewer';
@@ -131,6 +132,7 @@ const formatMessageTimeLabel = (dateString) => {
 };
 
 const ChatRoom = () => {
+  const { t } = useTranslation();
   const router = useRouter();
   const params = useLocalSearchParams();
   const currentUserId = auth.currentUser?.uid;
@@ -924,7 +926,7 @@ const ChatRoom = () => {
                     {recipient.full_name || "User"}
                   </Text>
                   <Text style={[styles.statusText, isOnline ? styles.activeStatus : null]} numberOfLines={1}>
-                    {isOnline ? "Active now" : `@${recipient.username || "username"}`}
+                    {isOnline ? (t('settings.selectLanguage') === 'Select Language' ? 'Active now' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Activo ahora' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Actif maintenant' : 'Ativo agora') : `@${recipient.username || "username"}`}
                   </Text>
                 </View>
               </Pressable>
@@ -937,7 +939,7 @@ const ChatRoom = () => {
         </View>
 
         {loading ? (
-          <Preloader text="Loading messages..." />
+          <Preloader text={t('feed.loading')} />
         ) : (
           <FlatList
             data={messages}
@@ -954,16 +956,16 @@ const ChatRoom = () => {
           isRequestRecipient ? (
             /* Action Banner for Message Requests */
             <View style={[styles.requestBanner, { paddingBottom: insets.bottom > 0 ? insets.bottom : 16 }]}>
-              <Text style={styles.requestTitle}>Do you want to chat with {recipient.full_name}?</Text>
+              <Text style={styles.requestTitle}>{t('settings.selectLanguage') === 'Select Language' ? 'Do you want to chat with' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? '¿Quieres chatear con' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Voulez-vous discuter avec' : 'Deseja conversar com'} {recipient.full_name}?</Text>
               <Text style={styles.requestSubtitle}>
-                {"They won't know you've read their message request until you Accept."}
+                {t('settings.selectLanguage') === 'Select Language' ? "They won't know you've read their message request until you Accept." : t('settings.selectLanguage') === 'Seleccionar Idioma' ? "No sabrán que has leído su solicitud até que a Aceite." : t('settings.selectLanguage') === 'Choisir la langue' ? "Ils ne sauront pas que vous avez lu leur demande avant que vous n'Acceptiez." : "Eles não saberão que você leu a solicitação até que você Aceite."}
               </Text>
               <View style={styles.requestActions}>
                 <Pressable onPress={handleAcceptRequest} style={styles.acceptBtn}>
-                  <Text style={styles.acceptText}>Accept</Text>
+                  <Text style={styles.acceptText}>{t('connections.accept')}</Text>
                 </Pressable>
                 <Pressable onPress={handleDeclineRequest} style={styles.declineBtn}>
-                  <Text style={styles.declineText}>Decline</Text>
+                  <Text style={styles.declineText}>{t('connections.decline')}</Text>
                 </Pressable>
               </View>
             </View>
@@ -985,7 +987,7 @@ const ChatRoom = () => {
                 )}
                 <TextInput
                   style={styles.textInput}
-                  placeholder="Message..."
+                  placeholder={t('chat.placeholder')}
                   placeholderTextColor="#9CA3AF"
                   value={inputText}
                   onChangeText={setInputText}

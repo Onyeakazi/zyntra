@@ -18,12 +18,14 @@ import Search from "../assets/vectors/search.svg";
 import COLORS from '../constants/colors';
 import { supabase } from '../lib/supabase';
 import { auth } from '../config/firebase';
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { router, useLocalSearchParams } from 'expo-router';
 
 
 const ConnectionsList = () => {
+  const { t } = useTranslation();
   const { userId, initialTab } = useLocalSearchParams();
   const currentUser = auth.currentUser;
   const targetUserId = userId || currentUser?.uid;
@@ -249,7 +251,7 @@ const ConnectionsList = () => {
               styles.actionBtnText, 
               isConnected ? styles.connectedBtnText : styles.connectBtnText
             ]}>
-              {isConnected ? "Connected" : "Connect"}
+              {isConnected ? t('connections.connected') : t('connections.connect')}
             </Text>
           </Pressable>
         )}
@@ -265,7 +267,7 @@ const ConnectionsList = () => {
           <Pressable onPress={() => router.back()} style={styles.backBtn}>
             <Back width={24} height={24} />
           </Pressable>
-          <Text style={styles.headerTitle}>Connections</Text>
+          <Text style={styles.headerTitle}>{t('settings.network')}</Text>
           <View style={{ width: 24 }} />
         </View>
 
@@ -278,7 +280,7 @@ const ConnectionsList = () => {
             }}
           >
             <Text style={[styles.tabText, activeTab === "Followers" && styles.activeTabText]}>
-              Followers ({followers.length})
+              {t('connections.followers')} ({followers.length})
             </Text>
           </Pressable>
 
@@ -290,7 +292,7 @@ const ConnectionsList = () => {
             }}
           >
             <Text style={[styles.tabText, activeTab === "Following" && styles.activeTabText]}>
-              Following ({following.length})
+              {t('connections.following')} ({following.length})
             </Text>
           </Pressable>
         </View>
@@ -299,7 +301,7 @@ const ConnectionsList = () => {
           <Search width={18} height={18} color="#888" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder={`Search ${activeTab.toLowerCase()}...`}
+            placeholder={t('connections.searchPlaceholder')}
             placeholderTextColor="#888"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -312,7 +314,7 @@ const ConnectionsList = () => {
         {loading && activeList.length === 0 ? (
           <View style={styles.centerContainer}>
             <ActivityIndicator size="large" color={COLORS.accent} />
-            <Text style={styles.loadingText}>Loading connections...</Text>
+            <Text style={styles.loadingText}>{t('feed.loading')}</Text>
           </View>
         ) : (
           <FlatList
@@ -332,12 +334,12 @@ const ConnectionsList = () => {
             ListEmptyComponent={
               <View style={styles.centerContainer}>
                 <Text style={styles.emptyText}>
-                  {searchQuery ? "No search results" : `No ${activeTab.toLowerCase()} yet`}
+                  {t('connections.noUsers')}
                 </Text>
                 <Text style={styles.emptySubText}>
                   {searchQuery 
-                    ? `No matching profiles found for "${searchQuery}"`
-                    : `You don't have any ${activeTab.toLowerCase()} yet.`}
+                    ? t('connections.noUsers') + " \"" + searchQuery + "\""
+                    : t('notification.emptySub')}
                 </Text>
               </View>
             }

@@ -18,6 +18,7 @@ import COLORS from '../constants/colors';
 import { acceptConnectionInDB } from '../utils/connectionHelpers';
 import createResponsiveStyleSheet from '../utils/responsiveStyleSheet';
 import { scale as scaleSize } from '../utils/scale';
+import { useTranslation } from 'react-i18next';
 
 // Custom inline SVG icons for visual excellence
 const EditIcon = ({ color = "#333", size = 16 }) => (
@@ -317,8 +318,40 @@ const ZoomableImage = ({ source, style, resizeMode = "contain" }) => {
 };
 
 const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onProfileImageUpdated, activePostId, postItems, initialPhotoViewerIndex = 0 }) => {
+  const { t, i18n } = useTranslation();
   const [activeItem, setActiveItem] = useState(item);
   const targetPostId = activeItem.id;
+
+  // Translation States
+  const [translatedText, setTranslatedText] = useState("");
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [showingTranslation, setShowingTranslation] = useState(false);
+
+  const handleTranslate = async () => {
+    if (showingTranslation) {
+      setShowingTranslation(false);
+      return;
+    }
+    if (translatedText) {
+      setShowingTranslation(true);
+      return;
+    }
+    
+    setIsTranslating(true);
+    try {
+      const activeLang = i18n.language || 'en';
+      const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${activeLang}&dt=t&q=${encodeURIComponent(item.content)}`);
+      const data = await res.json();
+      const result = data[0].map(x => x[0]).join('');
+      setTranslatedText(result);
+      setShowingTranslation(true);
+    } catch (e) {
+      console.log("Translation error:", e);
+      Alert.alert("Translation Error", "Could not fetch translation at this time.");
+    } finally {
+      setIsTranslating(false);
+    }
+  };
 
   const [expanded, setExpanded] = useState(false);
   const [showMore, setShowMore] = useState(false);
@@ -1218,7 +1251,7 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
                     styles.miniConnectBtnText,
                     connectionStatus === 'pending_sent' ? styles.miniConnectedBtnText : styles.miniConnectBtnTextSolid
                   ]}>
-                    {connectionStatus === 'pending_sent' ? "Requested" : connectionStatus === 'pending_received' ? "Accept" : "Connect"}
+                    {connectionStatus === 'pending_sent' ? t('connections.requested') : connectionStatus === 'pending_received' ? t('connections.accept') : t('connections.connect')}
                   </Text>
                 )}
               </Pressable>
@@ -1245,7 +1278,7 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
                 <>
                   <TouchableOpacity onPress={handleEditPost} style={styles.optionItem}>
                     <EditIcon size={16} color="#333" />
-                    <Text style={styles.optionText}>Edit Post</Text>
+                    <Text style={styles.optionText}>{t('settings.selectLanguage') === 'Select Language' ? 'Edit Post' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Editar Publicación' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Modifier le message' : 'Editar Publicação'}</Text>
                   </TouchableOpacity>
                   <View style={styles.optionDivider} />
                 </>
@@ -1253,14 +1286,14 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
 
               <TouchableOpacity onPress={handleCopyLink} style={styles.optionItem}>
                 <LinkIcon width={16} height={16} color="#333" />
-                <Text style={styles.optionText}>Copy Link</Text>
+                <Text style={styles.optionText}>{t('settings.selectLanguage') === 'Select Language' ? 'Copy Link' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Copiar Enlace' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Copier le lien' : 'Copiar Link'}</Text>
               </TouchableOpacity>
 
               <View style={styles.optionDivider} />
 
               <TouchableOpacity onPress={handleSharePost} style={styles.optionItem}>
                 <Share width={16} height={16} color="#333" />
-                <Text style={styles.optionText}>Share Post</Text>
+                <Text style={styles.optionText}>{t('feed.sharePost')}</Text>
               </TouchableOpacity>
 
               <View style={styles.optionDivider} />
@@ -1268,7 +1301,7 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
               <TouchableOpacity onPress={handleSavePostToggle} style={styles.optionItem}>
                 <BookmarkIcon size={16} color={isSaved ? "#438def" : "#333"} filled={isSaved} />
                 <Text style={[styles.optionText, isSaved ? { color: "#438def" } : null]}>
-                  {isSaved ? "Saved" : "Save Post"}
+                  {isSaved ? (t('settings.selectLanguage') === 'Select Language' ? 'Saved' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Guardado' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Enregistré' : 'Salvo') : (t('settings.selectLanguage') === 'Select Language' ? 'Save Post' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Guardar Publicación' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Enregistrer le message' : 'Salvar Publicação')}
                 </Text>
               </TouchableOpacity>
 
@@ -1277,7 +1310,7 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
                   <View style={styles.optionDivider} />
                   <TouchableOpacity onPress={handleDeletePost} style={styles.optionItem}>
                     <DeleteIcon size={16} color="red" />
-                    <Text style={[styles.optionText, { color: "red" }]}>Delete Post</Text>
+                    <Text style={[styles.optionText, { color: "red" }]}>{t('settings.selectLanguage') === 'Select Language' ? 'Delete Post' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Eliminar Publicación' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Supprimer le message' : 'Excluir Publicação'}</Text>
                   </TouchableOpacity>
                 </>
               )}
@@ -1287,7 +1320,7 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
                   <View style={styles.optionDivider} />
                   <TouchableOpacity onPress={handleReportPost} style={styles.optionItem}>
                     <ReportIcon size={16} color="red" />
-                    <Text style={[styles.optionText, { color: "red" }]}>Report Post</Text>
+                    <Text style={[styles.optionText, { color: "red" }]}>{t('settings.selectLanguage') === 'Select Language' ? 'Report Post' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Reportar Publicación' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Signaler le message' : 'Denunciar Publicação'}</Text>
                   </TouchableOpacity>
                 </>
               )}
@@ -1308,7 +1341,7 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
                 }
               }}
             >
-              {renderTextWithMentions(item.content, styles.mentionLink, styles.contentText)}
+              {renderTextWithMentions(showingTranslation && translatedText ? translatedText : item.content, styles.mentionLink, styles.contentText)}
             </Text>
           ) : null}
 
@@ -1316,7 +1349,20 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
           {showMore && (
             <TouchableOpacity onPress={() => setExpanded(!expanded)}>
               <Text style={styles.seeMore}>
-                {expanded ? "see less" : "see more"}
+                {expanded ? (t('settings.selectLanguage') === 'Select Language' ? 'see less' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'ver menos' : 'voir moins') : (t('settings.selectLanguage') === 'Select Language' ? 'see more' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'ver más' : 'voir plus')}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {/* See Translation Button */}
+          {item.content && item.content.trim().length > 0 && (
+            <TouchableOpacity onPress={handleTranslate} style={{ marginTop: 6, marginBottom: 4 }} disabled={isTranslating}>
+              <Text style={{ fontFamily: TYPOGRAPHY.semiBold, fontSize: 13, color: COLORS.accent }}>
+                {isTranslating 
+                  ? (t('settings.selectLanguage') === 'Select Language' ? 'Translating...' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Traduciendo...' : 'Traduction...') 
+                  : showingTranslation 
+                    ? (t('settings.selectLanguage') === 'Select Language' ? 'See Original' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Ver original' : 'Voir l\'original') 
+                    : (t('settings.selectLanguage') === 'Select Language' ? 'See Translation' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Ver traducción' : 'Voir la traduction')}
               </Text>
             </TouchableOpacity>
           )}
@@ -1527,7 +1573,7 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
             </View>
             {commentsCount > 0 && (
               <Text style={styles.infoCommentsText}>
-                {commentsCount} {commentsCount === 1 ? "comment" : "comments"}
+                {commentsCount} {commentsCount === 1 ? (t('settings.selectLanguage') === 'Select Language' ? 'comment' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'comentario' : t('settings.selectLanguage') === 'Choisir la langue' ? 'commentaire' : 'comentário') : t('feed.comments').toLowerCase()}
               </Text>
             )}
           </View>
@@ -1807,7 +1853,7 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
                           style={styles.optionItem}
                         >
                           <EditIcon size={16} color="#333" />
-                          <Text style={styles.optionText}>Edit Post</Text>
+                          <Text style={styles.optionText}>{t('settings.selectLanguage') === 'Select Language' ? 'Edit Post' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Editar Publicación' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Modifier le message' : 'Editar Publicação'}</Text>
                         </TouchableOpacity>
                       )}
                       <View style={styles.optionDivider} />
@@ -1822,7 +1868,7 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
                     style={styles.optionItem}
                   >
                     <LinkIconInline width={16} height={16} color="#333" />
-                    <Text style={styles.optionText}>Copy Link</Text>
+                    <Text style={styles.optionText}>{t('settings.selectLanguage') === 'Select Language' ? 'Copy Link' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Copiar Enlace' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Copier le lien' : 'Copiar Link'}</Text>
                   </TouchableOpacity>
 
                   <View style={styles.optionDivider} />
@@ -1835,7 +1881,7 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
                     style={styles.optionItem}
                   >
                     <Share width={16} height={16} color="#333" />
-                    <Text style={styles.optionText}>Share Post</Text>
+                    <Text style={styles.optionText}>{t('feed.sharePost')}</Text>
                   </TouchableOpacity>
 
                   <View style={styles.optionDivider} />
@@ -1849,7 +1895,7 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
                   >
                     <BookmarkIcon size={16} color={isSaved ? "#438def" : "#333"} filled={isSaved} />
                     <Text style={[styles.optionText, isSaved ? { color: "#438def" } : null]}>
-                      {isSaved ? "Saved" : "Save Post"}
+                      {isSaved ? (t('settings.selectLanguage') === 'Select Language' ? 'Saved' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Guardado' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Enregistré' : 'Salvo') : (t('settings.selectLanguage') === 'Select Language' ? 'Save Post' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Guardar Publicación' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Enregistrer le message' : 'Salvar Publicação')}
                     </Text>
                   </TouchableOpacity>
 
@@ -1865,7 +1911,7 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
                         style={styles.optionItem}
                       >
                         <DeleteIcon size={16} color="red" />
-                        <Text style={[styles.optionText, { color: "red" }]}>Delete Post</Text>
+                        <Text style={[styles.optionText, { color: "red" }]}>{t('settings.selectLanguage') === 'Select Language' ? 'Delete Post' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Eliminar Publicación' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Supprimer le message' : 'Excluir Publicação'}</Text>
                       </TouchableOpacity>
                     </>
                   )}
@@ -1881,7 +1927,7 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
                         style={styles.optionItem}
                       >
                         <ReportIcon size={16} color="red" />
-                        <Text style={[styles.optionText, { color: "red" }]}>Report Post</Text>
+                        <Text style={[styles.optionText, { color: "red" }]}>{t('settings.selectLanguage') === 'Select Language' ? 'Report Post' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Reportar Publicación' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Signaler le message' : 'Denunciar Publicação'}</Text>
                       </TouchableOpacity>
                     </>
                   )}

@@ -11,6 +11,7 @@ import {
 } from "react-native";
 
 import { router, useLocalSearchParams } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { auth } from "../config/firebase";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
@@ -26,6 +27,7 @@ import Camera from "../assets/vectors/cameras.svg";
 import LinkIcon from "../assets/vectors/link.svg";
 
 export default function CreatePost() {
+  const { t } = useTranslation();
   const params = useLocalSearchParams();
   const editId = params?.editId;
   const quoteId = params?.quoteId;
@@ -467,14 +469,10 @@ export default function CreatePost() {
           <Text style={styles.cancel}>✕</Text>
         </Pressable>
 
-        <Text style={styles.title}>{editId ? "Edit Post" : "Create Post"}</Text>
+        <Text style={styles.title}>{editId ? (t('settings.selectLanguage') === 'Select Language' ? 'Edit Post' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Editar Publicación' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Modifier le message' : 'Editar Publicação') : (t('settings.selectLanguage') === 'Select Language' ? 'Create Post' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Crear Publicación' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Créer un message' : 'Criar Publicação')}</Text>
 
-        <Pressable onPress={handlePost} disabled={posting}>
-          {posting ? (
-            <ActivityIndicator size="small" color="#1877F2" />
-          ) : (
-            <Text style={styles.post}>{editId ? "Update" : "Post"}</Text>
-          )}
+        <Pressable style={[styles.postBtn, !isPostEnabled && styles.disabledPostBtn]} onPress={handlePostSubmit} disabled={!isPostEnabled}>
+          <Text style={styles.post}>{editId ? (t('settings.selectLanguage') === 'Select Language' ? 'Update' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Actualizar' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Mettre à jour' : 'Atualizar') : (t('feed.repostNow') === 'Repost Now' ? 'Post' : t('feed.repostNow') === 'Compartir ahora' ? 'Publicar' : t('feed.repostNow') === 'Repartager' ? 'Publier' : 'Publicar')}</Text>
         </Pressable>
       </View>
 
@@ -490,7 +488,8 @@ export default function CreatePost() {
         />
 
         <View style={styles.privacyBtn}>
-          <Text style={styles.privacyText}>Public</Text>
+          <Globe color="#10B981" />
+          <Text style={styles.privacyText}>{t('settings.selectLanguage') === 'Select Language' ? 'Public' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Público' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Public' : 'Público'}</Text>
         </View>
       </View>
 
@@ -502,8 +501,8 @@ export default function CreatePost() {
       >
         {/* INPUT */}
         <TextInput
-          placeholder="What's on your mind?"
-          placeholderTextColor="#777"
+          placeholder={t('feed.whatsOnYourMind')}
+          placeholderTextColor="#999"
           multiline
           value={content}
           onChangeText={handleContentChange}
@@ -540,7 +539,7 @@ export default function CreatePost() {
         {linkInputVisible && (
           <View style={styles.linkInputContainer}>
             <TextInput
-              placeholder="Enter or paste URL (e.g. google.com)"
+              placeholder={t('settings.selectLanguage') === 'Select Language' ? 'Paste link here...' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Pegar enlace aquí...' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Coller le lien ici...' : 'Colar link aqui...'}
               value={tempLink}
               onChangeText={setTempLink}
               style={styles.linkTextInput}
@@ -548,7 +547,7 @@ export default function CreatePost() {
               autoCorrect={false}
             />
             <Pressable style={styles.attachBtn} onPress={handleAttachLink}>
-              <Text style={styles.attachBtnText}>Attach</Text>
+              <Text style={styles.attachBtnText}>{t('settings.selectLanguage') === 'Select Language' ? 'Attach' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Adjuntar' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Joindre' : 'Anexar'}</Text>
             </Pressable>
           </View>
         )}
@@ -556,7 +555,7 @@ export default function CreatePost() {
         {/* ATTACHED MEDIA PREVIEWS (Multiple Selection) */}
         {selectedMedia && selectedMedia.length > 0 && (
           <View style={styles.previewContainer}>
-            <Text style={styles.attachmentsTitle}>Attachments ({selectedMedia.length})</Text>
+            <Text style={styles.attachmentsTitle}>{t('settings.selectLanguage') === 'Select Language' ? 'Attachments' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Adjuntos' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Pièces jointes' : 'Anexos'} ({selectedMedia.length})</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -666,28 +665,28 @@ export default function CreatePost() {
       <View style={styles.bottomSheet}>
         <ScrollView showsVerticalScrollIndicator={false}>
           <Pressable style={styles.option} onPress={pickImage}>
-            <Img width={22} height={22} color={"#007AFF"} />
-            <Text style={styles.optionText}>Add A Photo</Text>
+            <Img width={20} height={20} />
+            <Text style={styles.optionText}>{t('settings.selectLanguage') === 'Select Language' ? 'Add A Photo' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Añadir Foto' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Ajouter une photo' : 'Adicionar Foto'}</Text>
           </Pressable>
 
           <Pressable style={styles.option} onPress={pickVideo}>
-            <Vid width={22} height={22} color={"#007AFF"} />
-            <Text style={styles.optionText}>Add A Video</Text>
+            <Vid width={20} height={20} />
+            <Text style={styles.optionText}>{t('settings.selectLanguage') === 'Select Language' ? 'Add A Video' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Añadir Video' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Ajouter une vidéo' : 'Adicionar Vídeo'}</Text>
           </Pressable>
 
           <Pressable style={styles.option} onPress={pickDocument}>
-            <Att width={22} height={22} color={"#007AFF"} />
-            <Text style={styles.optionText}>Add A Document</Text>
+            <Att width={20} height={20} />
+            <Text style={styles.optionText}>{t('settings.selectLanguage') === 'Select Language' ? 'Add A Document' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Añadir Documento' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Ajouter un document' : 'Adicionar Documento'}</Text>
           </Pressable>
 
           <Pressable style={styles.option} onPress={() => setLinkInputVisible(!linkInputVisible)}>
-            <LinkIcon width={22} height={22} color={"#007AFF"} />
-            <Text style={styles.optionText}>Add A Link</Text>
+            <LinkIcon width={20} height={20} />
+            <Text style={styles.optionText}>{t('settings.selectLanguage') === 'Select Language' ? 'Add A Link' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Añadir Enlace' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Ajouter un lien' : 'Adicionar Link'}</Text>
           </Pressable>
 
           <Pressable style={styles.option} onPress={pickCamera}>
-            <Camera width={22} height={22} />
-            <Text style={styles.optionText}>Camera</Text>
+            <Camera width={20} height={20} />
+            <Text style={styles.optionText}>{t('settings.selectLanguage') === 'Select Language' ? 'Camera' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Cámara' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Appareil photo' : 'Câmera'}</Text>
           </Pressable>
         </ScrollView>
       </View>

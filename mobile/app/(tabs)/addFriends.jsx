@@ -24,11 +24,13 @@ import { useState, useCallback, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { acceptConnectionInDB } from '../../utils/connectionHelpers';
+import { useTranslation } from 'react-i18next';
 
 const cardWidth = (375 - 40 - 15) / 2;
 
 
 const AddFriends = () => {
+  const { t } = useTranslation();
   const [users, setUsers] = useState([]);
   const [incomingRequests, setIncomingRequests] = useState([]);
   const [connectedIds, setConnectedIds] = useState([]);
@@ -266,13 +268,13 @@ const AddFriends = () => {
             style={styles.acceptBtnRow}
             onPress={() => handleAcceptRequest(item)}
           >
-            <Text style={styles.acceptBtnTextRow}>Accept</Text>
+            <Text style={styles.acceptBtnTextRow}>{t('connections.accept')}</Text>
           </Pressable>
           <Pressable 
             style={styles.declineBtnRow}
             onPress={() => handleDeclineRequest(item)}
           >
-            <Text style={styles.declineBtnTextRow}>Decline</Text>
+            <Text style={styles.declineBtnTextRow}>{t('connections.decline')}</Text>
           </Pressable>
         </View>
       </View>
@@ -322,7 +324,7 @@ const AddFriends = () => {
             styles.connectBtnText, 
             isRequested ? styles.connectedBtnText : styles.connectBtnTextSolid
           ]}>
-            {isRequested ? "Requested" : "Connect"}
+            {isRequested ? t('connections.requested') : t('connections.connect')}
           </Text>
         </Pressable>
       </Pressable>
@@ -336,7 +338,7 @@ const AddFriends = () => {
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} style={styles.headerLeft}>
             <Back width={24} height={24} />
-            <Text style={styles.headerText}>Discover People</Text>
+            <Text style={styles.headerText}>{t('connections.discoverTitle')}</Text>
           </Pressable>
           <Pressable style={styles.threeDots}>
             <ThreeDots width={24} height={24} />
@@ -347,7 +349,7 @@ const AddFriends = () => {
           <Search width={18} height={18} color="#888" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search by name or username..."
+            placeholder={t('connections.searchPlaceholder')}
             placeholderTextColor="#888"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -358,7 +360,7 @@ const AddFriends = () => {
         </View>
 
         {loading && users.length === 0 && incomingRequests.length === 0 ? (
-          <Preloader text="Finding people..." />
+          <Preloader text={t('feed.loading')} />
         ) : (
           <FlatList
             data={filteredUsers}
@@ -371,12 +373,12 @@ const AddFriends = () => {
             ListHeaderComponent={
               incomingRequests.length > 0 && !searchQuery ? (
                 <View style={styles.requestsSection}>
-                  <Text style={styles.sectionTitle}>Connection Requests</Text>
+                  <Text style={styles.sectionTitle}>{t('connections.requests')}</Text>
                   <View style={styles.requestsListVertical}>
                     {incomingRequests.map(renderRequestRow)}
                   </View>
                   <View style={styles.divider} />
-                  <Text style={[styles.sectionTitle, { marginTop: 15 }]}>People You May Know</Text>
+                  <Text style={[styles.sectionTitle, { marginTop: 15 }]}>{t('connections.suggestions')}</Text>
                 </View>
               ) : null
             }
@@ -391,12 +393,12 @@ const AddFriends = () => {
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>
-                  {searchQuery ? "No results found" : "No suggestions found"}
+                  {t('connections.noUsers')}
                 </Text>
                 <Text style={styles.emptySubText}>
                   {searchQuery 
-                    ? `We couldn't find anyone matching "${searchQuery}"`
-                    : "Check back later for new people to discover!"}
+                    ? t('connections.noUsers') + " \"" + searchQuery + "\""
+                    : t('notification.emptySub')}
                 </Text>
               </View>
             }

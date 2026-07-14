@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import createResponsiveStyleSheet from '../../utils/responsiveStyleSheet';
 import ScreenWrapper from '../../components/ScreenWrapper';
+import { useTranslation } from 'react-i18next';
 import StoryViewer from '../../components/StoryViewer';
 import { StatusBar } from 'expo-status-bar';
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -74,6 +75,7 @@ const SentCheckIcon = ({ color = "#B9BFC9", size = 14, filled = false }) => {
 };
 
 const MessageScreen = () => {
+  const { t } = useTranslation();
   const router = useRouter();
   const currentUserId = auth.currentUser?.uid;
 
@@ -626,7 +628,7 @@ const MessageScreen = () => {
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Chats</Text>
+          <Text style={styles.headerTitle}>{t('chat.messages')}</Text>
         </View>
 
         {/* Search Bar */}
@@ -634,7 +636,7 @@ const MessageScreen = () => {
           <SearchIcon color="#9CA3AF" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search messages..."
+            placeholder={t('feed.searchPlaceholder')}
             placeholderTextColor="#9CA3AF"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -647,7 +649,7 @@ const MessageScreen = () => {
         {/* Active Users Horizontal Slider */}
         {activeSliderData.length > 0 && (
           <View style={styles.activeUsersContainer}>
-            <Text style={styles.activeSectionTitle}>Active now ({onlineConnections.length})</Text>
+            <Text style={styles.activeSectionTitle}>{t('chat.online')} ({onlineConnections.length})</Text>
             <FlatList
               horizontal
               data={activeSliderData}
@@ -728,7 +730,7 @@ const MessageScreen = () => {
             onPress={() => setActiveTab("Inbox")}
           >
             <Text style={[styles.tabText, activeTab === "Inbox" && styles.activeTabText]}>
-              Inbox
+              {t('chat.messages')}
             </Text>
           </Pressable>
 
@@ -738,7 +740,7 @@ const MessageScreen = () => {
           >
             <View style={styles.tabWithBadge}>
               <Text style={[styles.tabText, activeTab === "Requests" && styles.activeTabText]}>
-                Requests
+                {t('connections.requests')}
               </Text>
               {pendingRequestsCount > 0 && (
                 <View style={styles.requestCountBadge}>
@@ -772,14 +774,10 @@ const MessageScreen = () => {
               <View style={styles.emptyContainer}>
                 <EmptyChatIcon color="#9CA3AF" size={42} />
                 <Text style={styles.emptyTitle}>
-                  {searchQuery ? "No conversations found" : activeTab === "Inbox" ? "No chats yet" : "No message requests"}
+                  {t('chat.empty')}
                 </Text>
                 <Text style={styles.emptySubtitle}>
-                  {searchQuery
-                    ? `No chats match "${searchQuery}"`
-                    : activeTab === "Inbox"
-                      ? "When you start messaging connections, they'll show up here."
-                      : "When non-connections send you messages, requests will appear here."}
+                  {t('chat.empty')}
                 </Text>
               </View>
             }
@@ -795,17 +793,17 @@ const MessageScreen = () => {
           <View style={styles.modalBackdrop}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>{"My Status"}</Text>
+                <Text style={styles.modalTitle}>{t('settings.settingsTitle')}</Text>
                 <Pressable onPress={() => setStatusModalVisible(false)}>
                   <Text style={styles.modalCloseButton}>✕</Text>
                 </Pressable>
               </View>
 
-              <Text style={styles.modalSubtitle}>{"What's your vibe today?"}</Text>
+              <Text style={styles.modalSubtitle}>{t('feed.whatsOnYourMind')}</Text>
 
               <TextInput
                 style={styles.statusInput}
-                placeholder="Share a thought... (max 30 chars)"
+                placeholder={t('feed.whatsOnYourMind')}
                 placeholderTextColor="#9CA3AF"
                 value={statusInputText}
                 onChangeText={setStatusInputText}
@@ -813,7 +811,7 @@ const MessageScreen = () => {
                 autoFocus
               />
 
-              <Text style={styles.presetLabel}>{"Quick updates"}</Text>
+              <Text style={styles.presetLabel}>{t('feed.repostNow')}</Text>
               <View style={styles.presetsContainer}>
                 {[
                   { text: "Available 💬" },

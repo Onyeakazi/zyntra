@@ -2,6 +2,7 @@ import { Dimensions, FlatList, Image, Pressable, ScrollView, Text, View, Activit
 import createResponsiveStyleSheet from "../../utils/responsiveStyleSheet";
 import { StatusBar } from "expo-status-bar";
 import ScreenWrapper from "../../components/ScreenWrapper";
+import { useTranslation } from "react-i18next";
 import Search from "../../assets/vectors/search.svg";
 import Img from "../../assets/vectors/img.svg";
 import Vid from "../../assets/vectors/videos.svg";
@@ -32,6 +33,7 @@ const BackIcon = ({ color = "#111", size = 24 }) => (
 );
 
 export default function Index() {
+  const { t } = useTranslation();
   const [avatar, setAvatar] = useState(null);
   const [feeds, setFeeds] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -727,23 +729,23 @@ export default function Index() {
               borderRadius: 20,
             }}
           />
-          <Text style={{ fontFamily: TYPOGRAPHY.regular, fontSize: 18 }}>{"What's on your mind?"}</Text>
+          <Text style={{ fontFamily: TYPOGRAPHY.regular, fontSize: 18 }}>{t('feed.whatsOnYourMind')}</Text>
         </View>
 
         <View style={styles.uploads}>
           <Pressable style={styles.links} onPress={() => router.push("/create-post")}>
             <Img width={19.5} height={19.5} />
-            <Text style={styles.linkText}>Image</Text>
+            <Text style={styles.linkText}>{t('feed.photoStory').split(' ')[0]}</Text>
           </Pressable>
           <View style={styles.linkLine} />
           <Pressable style={styles.links} onPress={() => router.push("/create-post")}>
             <Vid width={19.5} height={19.5} />
-            <Text style={styles.linkText}>Videos</Text>
+            <Text style={styles.linkText}>{t('feed.videoStory').split(' ')[0]}</Text>
           </Pressable>
           <View style={styles.linkLine} />
           <Pressable style={styles.links} onPress={() => router.push("/create-post")}>
             <Att width={19.5} height={19.5} />
-            <Text style={styles.linkText}>Attachment</Text>
+            <Text style={styles.linkText}>{t('feed.cancel') === 'Cancelar' ? 'Adjunto' : t('feed.cancel') === 'Annuler' ? 'Pièce' : 'Attachment'}</Text>
           </Pressable>
         </View>
       </Pressable>
@@ -793,7 +795,7 @@ export default function Index() {
       <ScreenWrapper>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>Loading feed...</Text>
+          <Text style={styles.loadingText}>{t('feed.loading')}</Text>
         </View>
       </ScreenWrapper>
     );
@@ -822,7 +824,7 @@ export default function Index() {
           <View style={styles.searchFieldContainer}>
             <TextInput
               style={styles.searchInputActive}
-              placeholder="Search posts or users..."
+              placeholder={t('feed.searchPlaceholder')}
               placeholderTextColor="#999"
               value={searchQuery}
               onChangeText={handleQueryChange}
@@ -843,9 +845,9 @@ export default function Index() {
         {/* Search Body Content */}
         {!searchQuery.trim() ? (
           <View style={styles.recentSearchesContainer}>
-            <Text style={styles.recentSearchesTitle}>Recent Searches</Text>
+            <Text style={styles.recentSearchesTitle}>{t('feed.recentSearches')}</Text>
             {recentSearches.length === 0 ? (
-              <Text style={styles.noRecentText}>No recent searches</Text>
+              <Text style={styles.noRecentText}>{t('feed.noRecent')}</Text>
             ) : (
               <FlatList
                 data={recentSearches}
@@ -895,7 +897,7 @@ export default function Index() {
             ListHeaderComponent={
               searchResults.length > 0 ? (
                 <View style={{ marginBottom: 15, marginTop: 10 }}>
-                  <Text style={{ fontSize: 16, fontFamily: TYPOGRAPHY.semiBold, color: '#111111', marginBottom: 10 }}>People</Text>
+                  <Text style={{ fontSize: 16, fontFamily: TYPOGRAPHY.semiBold, color: '#111111', marginBottom: 10 }}>{t('feed.people')}</Text>
                   {searchResults.slice(0, 3).map((user) => (
                     <Pressable
                       key={user.id}
@@ -919,7 +921,7 @@ export default function Index() {
                     </Pressable>
                   ))}
                   {filteredFeeds.length > 0 && (
-                    <Text style={{ fontSize: 16, fontFamily: TYPOGRAPHY.semiBold, color: '#111111', marginTop: 15, marginBottom: 10 }}>Posts</Text>
+                    <Text style={{ fontSize: 16, fontFamily: TYPOGRAPHY.semiBold, color: '#111111', marginTop: 15, marginBottom: 10 }}>{t('feed.posts')}</Text>
                   )}
                 </View>
               ) : null
@@ -927,12 +929,12 @@ export default function Index() {
             ListEmptyComponent={
               searchResults.length > 0 ? (
                 <View style={{ paddingVertical: 30, alignItems: "center" }}>
-                  <Text style={{ fontSize: 14, fontFamily: TYPOGRAPHY.regular, color: '#888888' }}>No matching posts found</Text>
+                  <Text style={{ fontSize: 14, fontFamily: TYPOGRAPHY.regular, color: '#888888' }}>{t('feed.noMatchingPosts')}</Text>
                 </View>
               ) : (
                 <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>No results found</Text>
-                  <Text style={styles.emptySubText}>{"We couldn't find any posts or people matching \"" + searchQuery + "\""}</Text>
+                  <Text style={styles.emptyText}>{t('feed.noResults')}</Text>
+                  <Text style={styles.emptySubText}>{t('feed.noResults') + " \"" + searchQuery + "\""}</Text>
                 </View>
               )
             }
@@ -1007,8 +1009,8 @@ export default function Index() {
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No posts yet!</Text>
-            <Text style={styles.emptySubText}>Create a post or add connections to populate your feed.</Text>
+            <Text style={styles.emptyText}>{t('feed.emptyFeed')}</Text>
+            <Text style={styles.emptySubText}>{t('feed.emptyFeedSub')}</Text>
           </View>
         }
       />
@@ -1027,35 +1029,35 @@ export default function Index() {
           <View style={styles.pickerModalContent}>
             <View style={styles.pickerHeaderBar}>
               <View style={styles.pickerHeaderIndicator} />
-              <Text style={styles.pickerTitle}>Create Story</Text>
+              <Text style={styles.pickerTitle}>{t('feed.createStory')}</Text>
             </View>
 
             <Pressable style={styles.pickerOption} onPress={pickStoryImage}>
               <View style={[styles.pickerIconBg, { backgroundColor: '#E1F5FE' }]}>
                 <Ionicons name="image-outline" size={24} color="#0288D1" />
               </View>
-              <Text style={styles.pickerOptionText}>Photo Story</Text>
+              <Text style={styles.pickerOptionText}>{t('feed.photoStory')}</Text>
             </Pressable>
 
             <Pressable style={styles.pickerOption} onPress={pickStoryVideo}>
               <View style={[styles.pickerIconBg, { backgroundColor: '#EDE7F6' }]}>
                 <Ionicons name="videocam-outline" size={24} color="#5E35B1" />
               </View>
-              <Text style={styles.pickerOptionText}>Video Story</Text>
+              <Text style={styles.pickerOptionText}>{t('feed.videoStory')}</Text>
             </Pressable>
 
             <Pressable style={styles.pickerOption} onPress={startTextStory}>
               <View style={[styles.pickerIconBg, { backgroundColor: '#E8F5E9' }]}>
                 <Ionicons name="text-outline" size={24} color="#2E7D32" />
               </View>
-              <Text style={styles.pickerOptionText}>Text Story</Text>
+              <Text style={styles.pickerOptionText}>{t('feed.textStory')}</Text>
             </Pressable>
 
             <Pressable
               style={styles.pickerCancelBtn}
               onPress={() => setIsStoryTypePickerVisible(false)}
             >
-              <Text style={styles.pickerCancelText}>Cancel</Text>
+              <Text style={styles.pickerCancelText}>{t('feed.cancel')}</Text>
             </Pressable>
           </View>
         </Pressable>

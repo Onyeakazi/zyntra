@@ -3,6 +3,7 @@ import createResponsiveStyleSheet from '../../utils/responsiveStyleSheet';
 import React, { useState } from 'react';
 import { router } from 'expo-router';
 import Logo from "../../assets/images/brand.png";
+import { useTranslation } from 'react-i18next';
 import TYPOGRAPHY from "../../constants/typography";
 import COLORS from '../../constants/colors';
 import FloatingInput from '../../components/Input';
@@ -10,6 +11,7 @@ import Button from '../../components/Button';
 import { Ionicons } from "@expo/vector-icons";
 
 const ForgotPassword = () => {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -18,11 +20,11 @@ const ForgotPassword = () => {
   const handleResetPassword = async () => {
     // 1. Validation Checks
     if (!email.trim()) {
-      setError("Email is required");
+      setError(t('auth.emailPlaceholder'));
       return;
     }
     if (!/\S+@\S+\.\S+/.test(email)) {
-      setError("Enter a valid email address");
+      setError(t('auth.invalidEmail'));
       return;
     }
 
@@ -66,14 +68,14 @@ const ForgotPassword = () => {
             <Image source={Logo} style={styles.logo} />
           </View>
 
-          <Text style={styles.title}>Forgot Password?</Text>
+          <Text style={styles.title}>{t('auth.forgotPassword')}</Text>
           <Text style={styles.subtitle}>
-            {"Enter your email address and we'll send you a link to reset your password."}
+            {t('auth.forgotPasswordSub')}
           </Text>
 
           <View style={styles.form}>
             <FloatingInput
-              placeholder="Email"
+              placeholder={t('auth.emailPlaceholder')}
               value={email}
               onChangeText={(text) => {
                 setEmail(text);
@@ -89,7 +91,7 @@ const ForgotPassword = () => {
 
           <View style={styles.buttonContainer}>
             <Button
-              text="Send Recovery Email"
+              text={t('auth.sendReset')}
               action={handleResetPassword}
               bgColor={COLORS.accent}
               textColor="#FFFFFF"
@@ -101,7 +103,7 @@ const ForgotPassword = () => {
           <View style={styles.footer}>
             <TouchableOpacity onPress={() => router.back()}>
               <Text style={styles.footerText}>
-                Remember password? <Text style={styles.footerLink}>Go back</Text>
+                {t('auth.backToLogin')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -116,15 +118,13 @@ const ForgotPassword = () => {
             </View>
           </View>
 
-          <Text style={styles.successTitle}>Check your email</Text>
+          <Text style={styles.successTitle}>{t('auth.resetSent')}</Text>
           <Text style={styles.successDescription}>
-            We have sent a password reset link to{"\n"}
-            <Text style={styles.emailHighlight}>{email}</Text>.{"\n"}
-            Please follow the link in your inbox to set your new password.
+            {t('auth.forgotPasswordSub')}
           </Text>
 
           <Button
-            text="Back to Login"
+            text={t('auth.backToLogin')}
             action={() => router.replace("/(auth)/login")}
             bgColor={COLORS.primary}
             textColor="#FFFFFF"

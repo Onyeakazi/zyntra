@@ -11,6 +11,7 @@ import {
   RefreshControl
 } from 'react-native';
 import createResponsiveStyleSheet from '../utils/responsiveStyleSheet';
+import { useTranslation } from 'react-i18next';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
@@ -26,8 +27,41 @@ import COLORS from '../constants/colors';
 import { StatusBar } from 'expo-status-bar';
 
 export default function Comments() {
+  const { t } = useTranslation();
   const { postId } = useLocalSearchParams();
   const router = useRouter();
+
+  // Translation States for Comments and Replies
+  const [translatedComments, setTranslatedComments] = useState({});
+  const [translatingCommentIds, setTranslatingCommentIds] = useState({});
+
+  const handleTranslateComment = async (commentId, content) => {
+    if (translatedComments[commentId]) {
+      setTranslatedComments(prev => {
+        const next = { ...prev };
+        delete next[commentId];
+        return next;
+      });
+      return;
+    }
+    
+    setTranslatingCommentIds(prev => ({ ...prev, [commentId]: true }));
+    try {
+      const activeLang = t('settings.selectLanguage') === 'Select Language' ? 'en' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'es' : t('settings.selectLanguage') === 'Choisir la langue' ? 'fr' : 'pt';
+      const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${activeLang}&dt=t&q=${encodeURIComponent(content)}`);
+      const data = await res.json();
+      const result = data[0].map(x => x[0]).join('');
+      setTranslatedComments(prev => ({ ...prev, [commentId]: result }));
+    } catch (e) {
+      console.log("Comment translation error:", e);
+    } finally {
+      setTranslatingCommentIds(prev => {
+        const next = { ...prev };
+        delete next[commentId];
+        return next;
+      });
+    }
+  };
   const currentUserId = auth.currentUser?.uid;
 
   const [comments, setComments] = useState([]);
@@ -507,7 +541,7 @@ export default function Comments() {
               >
                 @{parent.users?.username}{' '}
               </Text>
-              {renderTextWithMentions(reply.content, styles.mentionLink, {})}
+              {renderTextWithMentions(translatedComments[reply.id] || reply.content, styles.mentionLink, {})}
             </Text>
 
             {/* Reactions count on bubble */}
@@ -535,12 +569,22 @@ export default function Comments() {
                 styles.actionButtonText,
                 reply.myReaction ? { color: getReactionColor(reply.myReaction), fontWeight: 'bold' } : null
               ]}>
-                {reply.myReaction ? capitalize(reply.myReaction) : "Like"}
+                {reply.myReaction ? capitalize(reply.myReaction) : (t('settings.selectLanguage') === 'Select Language' ? 'Like' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Me gusta' : t('settings.selectLanguage') === 'Choisir la langue' ? 'J\'aime' : 'Curtir')}
               </Text>
             </Pressable>
 
             <Pressable onPress={() => handleStartReply(parent)} style={styles.actionButton}>
-              <Text style={styles.actionButtonText}>Reply</Text>
+              <Text style={styles.actionButtonText}>{t('feed.repostNow') === 'Repost Now' ? 'Reply' : t('feed.repostNow') === 'Compartir ahora' ? 'Responder' : t('feed.repostNow') === 'Repartager' ? 'Répondre' : 'Responder'}</Text>
+            </Pressable>
+
+            <Pressable onPress={() => handleTranslateComment(reply.id, reply.content)} style={styles.actionButton}>
+              <Text style={[styles.actionButtonText, { color: COLORS.accent }]}>
+                {translatingCommentIds[reply.id] 
+                  ? (t('settings.selectLanguage') === 'Select Language' ? 'Translating...' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Traduciendo...' : 'Traduction...')
+                  : translatedComments[reply.id] 
+                    ? (t('settings.selectLanguage') === 'Select Language' ? 'See Original' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Ver original' : 'Voir l\'original')
+                    : (t('settings.selectLanguage') === 'Select Language' ? 'See Translation' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Ver traducción' : 'Voir la traduction')}
+              </Text>
             </Pressable>
 
             <Text style={styles.commentTime}>{formatCommentTime(reply.created_at)}</Text>
@@ -592,7 +636,7 @@ export default function Comments() {
               <Text style={styles.commentAuthorName}>{name}</Text>
               {/* <Text style={styles.commentAuthorUsername}>@{username}</Text> */}
               <Text style={styles.commentContent}>
-                {renderTextWithMentions(item.content, styles.mentionLink, {})}
+                {renderTextWithMentions(translatedComments[item.id] || item.content, styles.mentionLink, {})}
               </Text>
 
               {/* Reactions count on bubble */}
@@ -620,12 +664,22 @@ export default function Comments() {
                   styles.actionButtonText,
                   item.myReaction ? { color: getReactionColor(item.myReaction), fontWeight: 'bold' } : null
                 ]}>
-                  {item.myReaction ? capitalize(item.myReaction) : "Like"}
+                  {item.myReaction ? capitalize(item.myReaction) : (t('settings.selectLanguage') === 'Select Language' ? 'Like' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Me gusta' : t('settings.selectLanguage') === 'Choisir la langue' ? 'J\'aime' : 'Curtir')}
                 </Text>
               </Pressable>
 
               <Pressable onPress={() => handleStartReply(item)} style={styles.actionButton}>
-                <Text style={styles.actionButtonText}>Reply</Text>
+                <Text style={styles.actionButtonText}>{t('feed.repostNow') === 'Repost Now' ? 'Reply' : t('feed.repostNow') === 'Compartir ahora' ? 'Responder' : t('feed.repostNow') === 'Repartager' ? 'Répondre' : 'Responder'}</Text>
+              </Pressable>
+
+              <Pressable onPress={() => handleTranslateComment(item.id, item.content)} style={styles.actionButton}>
+                <Text style={[styles.actionButtonText, { color: COLORS.accent }]}>
+                  {translatingCommentIds[item.id] 
+                    ? (t('settings.selectLanguage') === 'Select Language' ? 'Translating...' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Traduciendo...' : 'Traduction...')
+                    : translatedComments[item.id] 
+                      ? (t('settings.selectLanguage') === 'Select Language' ? 'See Original' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Ver original' : 'Voir l\'original')
+                      : (t('settings.selectLanguage') === 'Select Language' ? 'See Translation' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Ver traducción' : 'Voir la traduction')}
+                </Text>
               </Pressable>
 
               <Text style={styles.commentTime}>{formatCommentTime(item.created_at)}</Text>
@@ -712,10 +766,15 @@ export default function Comments() {
               }
               ListHeaderComponent={post ? <Feed item={post} /> : null}
               ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>No comments yet</Text>
-                  <Text style={styles.emptySubText}>Be the first to share your thoughts!</Text>
-                </View>
+                !loading && (
+                  <View style={styles.emptyContainer}>
+                    <View style={styles.emptyIconContainer}>
+                      <Message width={30} height={30} color="#888" />
+                    </View>
+                    <Text style={styles.emptyText}>{t('settings.selectLanguage') === 'Select Language' ? 'No comments yet' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Sin comentarios aún' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Pas encore de commentaires' : 'Sem comentários ainda'}</Text>
+                    <Text style={styles.emptySubText}>{t('settings.selectLanguage') === 'Select Language' ? 'Be the first to share your thoughts!' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? '¡Sé el primero en compartir tus pensamientos!' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Soyez le premier à partager vos pensées!' : 'Seja o primeiro a compartilhar seus pensamentos!'}</Text>
+                  </View>
+                )
               }
             />
           )}
@@ -723,9 +782,11 @@ export default function Comments() {
           {/* Replying Status Banner */}
           {replyingTo && (
             <View style={styles.replyingBanner}>
-              <Text style={styles.replyingBannerText}>
-                Replying to <Text style={{ fontWeight: 'bold', color: COLORS.accent }}>@{replyingTo.users?.username}</Text>
-              </Text>
+              <View style={styles.replyingBannerLeft}>
+                <Text style={styles.replyingBannerText}>
+                  {t('settings.selectLanguage') === 'Select Language' ? 'Replying to' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Respondiendo a' : t('settings.selectLanguage') === 'Choisir la langue' ? 'En réponse à' : 'Respondendo a'} <Text style={{ fontWeight: 'bold', color: COLORS.accent }}>@{replyingTo.users?.username}</Text>
+                </Text>
+              </View>
               <Pressable onPress={handleCancelReply} style={styles.replyingBannerClose}>
                 <Text style={styles.replyingBannerCloseText}>✕</Text>
               </Pressable>
@@ -775,12 +836,12 @@ export default function Comments() {
               <TextInput
                 ref={inputRef}
                 style={styles.input}
-                placeholder={replyingTo ? "Write a reply..." : "Write a comment..."}
-                placeholderTextColor="#999"
+                placeholder={t('settings.selectLanguage') === 'Select Language' ? 'Add a comment...' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Añadir un comentario...' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Ajouter un commentaire...' : 'Adicionar um comentário...'}
+                placeholderTextColor="#9CA3AF"
                 value={commentText}
                 onChangeText={handleCommentTextChange}
                 multiline
-                maxLength={1000}
+                maxLength={500}
               />
               <Pressable
                 onPress={handlePostComment}
@@ -793,7 +854,7 @@ export default function Comments() {
                 {submitting ? (
                   <ActivityIndicator size="small" color="#FFF" />
                 ) : (
-                  <Text style={styles.sendButtonText}>Post</Text>
+                  <Text style={styles.sendButtonText}>{t('feed.repostNow') === 'Repost Now' ? 'Post' : t('feed.repostNow') === 'Compartir ahora' ? 'Publicar' : t('feed.repostNow') === 'Repartager' ? 'Publier' : 'Publicar'}</Text>
                 )}
               </Pressable>
             </View>

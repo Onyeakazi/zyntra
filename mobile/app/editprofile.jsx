@@ -20,10 +20,12 @@ import Camera from "../assets/vectors/Camera.svg";
 import Back from "../assets/vectors/back.svg";
 import { useState, useEffect } from "react";
 import { auth } from "../config/firebase";
+import { useTranslation } from "react-i18next";
 import { supabase } from "../lib/supabase";
 import * as ImagePicker from "expo-image-picker";
 
 const EditProfile = () => {
+  const { t } = useTranslation();
   const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -268,11 +270,9 @@ const EditProfile = () => {
         {/* HEADER */}
         <View style={styles.header}>
           <Pressable onPress={() => router.back()}>
-            <Back width={24} height={24} />
+            <Back width={scale(24)} height={scale(24)} />
           </Pressable>
-
-          <Text style={styles.headerTitle}>Edit Profile</Text>
-
+          <Text style={styles.headerTitle}>{t('editProfile.title')}</Text>
           <View style={{ width: 24 }} />
         </View>
 
@@ -327,10 +327,10 @@ const EditProfile = () => {
         <View style={styles.form}>
           {/* FULL NAME */}
           <View style={styles.field}>
-            <Text style={styles.label}>Full Name</Text>
+            <Text style={styles.label}>{t('auth.nameLabel')}</Text>
 
             <FloatingInput
-              placeholder="Full Name"
+              placeholder={t('auth.nameLabel')}
               value={fullName}
               onChangeText={setFullName}
             />
@@ -338,10 +338,10 @@ const EditProfile = () => {
 
           {/* USERNAME */}
           <View style={styles.field}>
-            <Text style={styles.label}>Username</Text>
+            <Text style={styles.label}>{t('auth.usernameLabel')}</Text>
 
             <FloatingInput
-              placeholder="Username"
+              placeholder={t('auth.usernameLabel')}
               value={username}
               onChangeText={setUsername}
             />
@@ -349,10 +349,10 @@ const EditProfile = () => {
 
           {/* EMAIL */}
           <View style={styles.field}>
-            <Text style={styles.label}>Email</Text>
+            <Text style={styles.label}>{t('auth.emailLabel')}</Text>
 
             <FloatingInput
-              placeholder="Email"
+              placeholder={t('auth.emailLabel')}
               value={email}
               onChangeText={setEmail}
             />
@@ -360,7 +360,7 @@ const EditProfile = () => {
 
           {/* BIO */}
           <View style={styles.field}>
-            <Text style={styles.label}>Username</Text>
+            <Text style={styles.label}>{t('auth.usernameLabel')}</Text>
 
             <FloatingInput
               value={username}
@@ -370,10 +370,10 @@ const EditProfile = () => {
 
           {/* BIO */}
           <View style={styles.field}>
-            <Text style={styles.label}>Bio</Text>
+            <Text style={styles.label}>{t('editProfile.bio')}</Text>
 
             <FloatingInput
-              placeholder="Tell people about yourself"
+              placeholder={t('editProfile.title') === 'Edit Profile' ? 'Tell people about yourself' : t('editProfile.title') === 'Editar Perfil' ? 'Cuéntale a la gente sobre ti' : t('editProfile.title') === 'Modifier le profil' ? 'Parlez de vous aux gens' : 'Fale sobre você para as pessoas'}
               value={bio}
               onChangeText={setBio}
               multiline
@@ -383,10 +383,10 @@ const EditProfile = () => {
 
           {/* WORK */}
           <View style={styles.field}>
-            <Text style={styles.label}>Work</Text>
+            <Text style={styles.label}>{t('editProfile.occupation')}</Text>
 
             <FloatingInput
-              placeholder="Occupation"
+              placeholder={t('editProfile.occupation')}
               value={work}
               onChangeText={setWork}
             />
@@ -394,10 +394,10 @@ const EditProfile = () => {
 
           {/* LOCATION */}
           <View style={styles.field}>
-            <Text style={styles.label}>Location</Text>
+            <Text style={styles.label}>{t('editProfile.location')}</Text>
 
             <FloatingInput
-              placeholder="Address"
+              placeholder={t('editProfile.location')}
               value={address}
               onChangeText={setAddress}
             />
@@ -405,10 +405,10 @@ const EditProfile = () => {
 
           {/* Phone */}
           <View style={styles.field}>
-            <Text style={styles.label}>Phone Number</Text>
+            <Text style={styles.label}>{t('settings.selectLanguage') === 'Select Language' ? 'Phone Number' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Número de Teléfono' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Numéro de téléphone' : 'Número de Telefone'}</Text>
 
             <FloatingInput
-              placeholder="Phone"
+              placeholder={t('settings.selectLanguage') === 'Select Language' ? 'Phone' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Teléfono' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Téléphone' : 'Telefone'}
               value={phone}
               onChangeText={setPhone}
             />
@@ -416,10 +416,10 @@ const EditProfile = () => {
 
           {/* Education */}
           <View style={styles.field}>
-            <Text style={styles.label}>Education</Text>
+            <Text style={styles.label}>{t('editProfile.education')}</Text>
 
             <FloatingInput
-              placeholder="Education"
+              placeholder={t('editProfile.education')}
               value={education}
               onChangeText={setEducation}
             />
@@ -428,7 +428,7 @@ const EditProfile = () => {
           {/* SAVE BUTTON */}
           <View style={{ marginTop: verticalScale(30) }}>
             <Button
-              text="Save Changes"
+              text={t('editProfile.save')}
               bgColor={COLORS.primary}
               textColor="#fff"
               action={handleSave}

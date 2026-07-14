@@ -784,7 +784,7 @@ const Profile = () => {
                       style={styles.editBtn}
                       onPress={() => router.push("/editprofile")}
                     >
-                      <Text style={styles.settingText}>EDIT PROFILE</Text>
+                      <Text style={styles.settingText}>{t('settings.editProfile').toUpperCase()}</Text>
                     </Pressable>
 
                     <Pressable
@@ -832,12 +832,12 @@ const Profile = () => {
                         ]}
                       >
                         {connectionStatus === "accepted" 
-                          ? "CONNECTED" 
+                          ? t('connections.connected').toUpperCase() 
                           : connectionStatus === "pending" 
                             ? connectionInitiator === currentUserId 
-                              ? "REQUESTED" 
-                              : "ACCEPT REQUEST" 
-                            : "CONNECT"}
+                              ? t('connections.requested').toUpperCase() 
+                              : t('connections.accept').toUpperCase() 
+                            : t('connections.connect').toUpperCase()}
                       </Text>
                     </Pressable>
 
@@ -859,7 +859,7 @@ const Profile = () => {
                       })}
                     >
                       <Text style={[styles.settingText, { color: "#4B5563" }]}>
-                        MESSAGE
+                        {t('chat.messages').split(' ')[0].toUpperCase()}
                       </Text>
                     </Pressable>
                   </>
@@ -874,7 +874,7 @@ const Profile = () => {
                       {feeds.length}
                     </Text>
 
-                    <Text style={styles.statText}>Post</Text>
+                    <Text style={styles.statText}>{t('feed.posts')}</Text>
                   </View>
 
                   <View style={styles.lines} />
@@ -884,7 +884,7 @@ const Profile = () => {
                       {feeds.filter(post => post.image && post.media_type !== 'video').length}
                     </Text>
 
-                    <Text style={styles.statText}>Photos</Text>
+                    <Text style={styles.statText}>{t('settings.photosVideos').split('/')[0]}</Text>
                   </View>
 
                   <View style={styles.lines} />
@@ -900,7 +900,7 @@ const Profile = () => {
                        {followersCount}
                      </Text>
 
-                     <Text style={styles.statText}>Followers</Text>
+                     <Text style={styles.statText}>{t('connections.followers')}</Text>
                    </Pressable>
 
                   <View style={styles.lines} />
@@ -933,7 +933,7 @@ const Profile = () => {
                       active === "Posts" && styles.btnActive,
                     ]}
                   >
-                    Posts
+                    {t('feed.posts')}
                   </Text>
 
                   {active === "Posts" && (
@@ -951,7 +951,7 @@ const Profile = () => {
                       active === "Details" && styles.btnActive,
                     ]}
                   >
-                    Details
+                    {t('settings.selectLanguage') === 'Select Language' ? 'Details' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Detalles' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Détails' : 'Detalhes'}
                   </Text>
 
                   {active === "Details" && (
@@ -1028,16 +1028,16 @@ const Profile = () => {
             {(() => {
               if (currentMenuView === "menu") {
                 const menuItems = [
-                  { label: "Edit Profile", icon: "create-outline", action: () => { setIsMenuVisible(false); router.push("/editprofile"); } },
-                  { label: "Network", icon: "people-outline", action: () => { setIsMenuVisible(false); router.push("/connectionsList"); } },
-                  { label: "Photos/Videos", icon: "images-outline", action: () => { fetchPhotoHistory(); setCurrentMenuView("folders"); } },
-                  { label: "Group", icon: "chatbubbles-outline", action: () => Alert.alert("Groups", "Groups feature coming soon.") },
-                  { label: "Your Privacy", icon: "lock-closed-outline", action: () => Alert.alert("Privacy", "Privacy options coming soon.") },
-                  { label: "Search Profile", icon: "search-outline", action: () => Alert.alert("Search Profile", "Profile searching is available on the Home tab.") },
-                  { label: "Settings", icon: "settings-outline", action: () => Alert.alert("Settings", "General settings coming soon.") },
-                  { label: "About Us", icon: "information-circle-outline", action: () => Alert.alert("About Us", "Zyntra is a premium professional networking platform.") },
+                  {label: t('settings.editProfile'), icon: "create-outline", action: () => { setIsMenuVisible(false); router.push("/editprofile"); } },
+                  { label: t('settings.network'), icon: "people-outline", action: () => { setIsMenuVisible(false); router.push("/connectionsList"); } },
+                  { label: t('settings.photosVideos'), icon: "images-outline", action: () => { fetchPhotoHistory(); setCurrentMenuView("folders"); } },
+                  { label: t('settings.group'), icon: "chatbubbles-outline", action: () => Alert.alert("Groups", "Groups feature coming soon.") },
+                  { label: t('settings.privacy'), icon: "lock-closed-outline", action: () => Alert.alert("Privacy", "Privacy options coming soon.") },
+                  { label: t('settings.searchProfile'), icon: "search-outline", action: () => Alert.alert("Search Profile", "Profile searching is available on the Home tab.") },
+                  { label: t('settings.settingsTitle'), icon: "settings-outline", action: () => Alert.alert("Settings", "General settings coming soon.") },
+                  { label: t('settings.aboutUs'), icon: "information-circle-outline", action: () => Alert.alert("About Us", "Zyntra is a premium professional networking platform.") },
                   { label: t('settings.language'), icon: "globe-outline", action: () => { setIsMenuVisible(false); setIsLanguageModalVisible(true); } },
-                  { label: "Log Out", icon: "log-out-outline", action: () => { setIsMenuVisible(false); handleLogout(); }, isRed: true },
+                  { label: t('settings.logOut'), icon: "log-out-outline", action: () => { setIsMenuVisible(false); handleLogout(); }, isRed: true },
                 ];
 
                 return (

@@ -20,10 +20,12 @@ import { useRouter } from 'expo-router';
 import { acceptConnectionInDB } from '../../utils/connectionHelpers';
 import TYPOGRAPHY from '../../constants/typography';
 import COLORS from '../../constants/colors';
+import { useTranslation } from 'react-i18next';
 import Back from '../../assets/vectors/back.svg';
 import Notification from '../../assets/vectors/bell.svg';
 
 const NotificationScreen = () => {
+  const { t } = useTranslation();
   const router = useRouter();
   const currentUserId = auth.currentUser?.uid;
 
@@ -221,7 +223,7 @@ const NotificationScreen = () => {
 
     switch (item.type) {
       case 'story_reaction':
-        return <>{renderSender()} reacted to your story: {item.story_reaction}</>;
+        return <>{renderSender()} {t('notification.reactedStory')} {item.story_reaction}</>;
       case 'story_view_milestone':
         return <>Your story received {item.story_reaction} views before expiring.</>;
       case 'repost':
@@ -229,9 +231,9 @@ const NotificationScreen = () => {
           ? ` "${item.posts.content.substring(0, 25)}${item.posts.content.length > 25 ? '...' : ''}"` 
           : "";
         return repostPreview ? (
-          <>{renderSender()} reposted your post:{repostPreview}</>
+          <>{renderSender()} {t('feed.sharedPost')}:{repostPreview}</>
         ) : (
-          <>{renderSender()} reposted your post</>
+          <>{renderSender()} {t('feed.sharedPost')}</>
         );
       case 'reaction':
         if (item.comment_id) {
@@ -239,9 +241,9 @@ const NotificationScreen = () => {
             ? ` "${item.post_comments.content.substring(0, 25)}${item.post_comments.content.length > 25 ? '...' : ''}"` 
             : "";
           return preview ? (
-            <>{renderSender()} reacted to your comment:{preview}</>
+            <>{renderSender()} {t('notification.reactedComment')}:{preview}</>
           ) : (
-            <>{renderSender()} reacted to your comment</>
+            <>{renderSender()} {t('notification.reactedComment')}</>
           );
         } else {
           if (item.posts?.repost_id) {
@@ -249,9 +251,9 @@ const NotificationScreen = () => {
               ? ` "${item.posts.content.substring(0, 25)}${item.posts.content.length > 25 ? '...' : ''}"` 
               : "";
             return preview ? (
-              <>{renderSender()} reacted to the post you reshared:{preview}</>
+              <>{renderSender()} {t('notification.reactedPost')}:{preview}</>
             ) : (
-              <>{renderSender()} reacted to the post you reshared</>
+              <>{renderSender()} {t('notification.reactedPost')}</>
             );
           }
 
@@ -259,19 +261,19 @@ const NotificationScreen = () => {
           const isBanner = item.posts?.content === "updated their cover photo";
 
           if (isAvatar) {
-            return <>{renderSender()} reacted to your profile picture</>;
+            return <>{renderSender()} {t('notification.reactedPost')}</>;
           }
           if (isBanner) {
-            return <>{renderSender()} reacted to your cover photo</>;
+            return <>{renderSender()} {t('notification.reactedPost')}</>;
           }
 
           const preview = item.posts?.content 
             ? ` "${item.posts.content.substring(0, 25)}${item.posts.content.length > 25 ? '...' : ''}"` 
             : "";
           return preview ? (
-            <>{renderSender()} reacted to your post:{preview}</>
+            <>{renderSender()} {t('notification.reactedPost')}:{preview}</>
           ) : (
-            <>{renderSender()} reacted to your post</>
+            <>{renderSender()} {t('notification.reactedPost')}</>
           );
         }
       case 'comment':
@@ -280,9 +282,9 @@ const NotificationScreen = () => {
           : "";
         if (item.posts?.repost_id) {
           return commentPreview ? (
-            <>{renderSender()} commented on the post you reshared:{commentPreview}</>
+            <>{renderSender()} {t('notification.commentedPost')}:{commentPreview}</>
           ) : (
-            <>{renderSender()} commented on the post you reshared</>
+            <>{renderSender()} {t('notification.commentedPost')}</>
           );
         }
 
@@ -291,46 +293,46 @@ const NotificationScreen = () => {
 
         if (isCommentAvatar) {
           return commentPreview ? (
-            <>{renderSender()} commented on your profile picture:{commentPreview}</>
+            <>{renderSender()} {t('notification.commentedPost')}:{commentPreview}</>
           ) : (
-            <>{renderSender()} commented on your profile picture</>
+            <>{renderSender()} {t('notification.commentedPost')}</>
           );
         }
         if (isCommentBanner) {
           return commentPreview ? (
-            <>{renderSender()} commented on your cover photo:{commentPreview}</>
+            <>{renderSender()} {t('notification.commentedPost')}:{commentPreview}</>
           ) : (
-            <>{renderSender()} commented on your cover photo</>
+            <>{renderSender()} {t('notification.commentedPost')}</>
           );
         }
 
         return commentPreview ? (
-          <>{renderSender()} commented on your post:{commentPreview}</>
+          <>{renderSender()} {t('notification.commentedPost')}:{commentPreview}</>
         ) : (
-          <>{renderSender()} commented on your post</>
+          <>{renderSender()} {t('notification.commentedPost')}</>
         );
       case 'reply':
         const replyPreview = item.post_comments?.content 
           ? ` "${item.post_comments.content.substring(0, 25)}${item.post_comments.content.length > 25 ? '...' : ''}"` 
           : "";
         return replyPreview ? (
-          <>{renderSender()} replied to your comment:{replyPreview}</>
+          <>{renderSender()} {t('notification.repliedComment')}:{replyPreview}</>
         ) : (
-          <>{renderSender()} replied to your comment</>
+          <>{renderSender()} {t('notification.repliedComment')}</>
         );
       case 'connection_request':
-        return <>{renderSender()} sent you a connection request.</>;
+        return <>{renderSender()} {t('notification.sentRequest')}</>;
       case 'connection_accepted':
-        return <>{renderSender()} accepted your connection request.</>;
+        return <>{renderSender()} {t('notification.acceptedRequest')}</>;
       case 'mention':
         if (item.comment_id) {
           const preview = item.post_comments?.content 
             ? ` "${item.post_comments.content.substring(0, 25)}${item.post_comments.content.length > 25 ? '...' : ''}"` 
             : "";
           return preview ? (
-            <>{renderSender()} mentioned you in a comment:{preview}</>
+            <>{renderSender()} {t('notification.mentionedComment')}:{preview}</>
           ) : (
-            <>{renderSender()} mentioned you in a comment</>
+            <>{renderSender()} {t('notification.mentionedComment')}</>
           );
         } else {
           const preview = item.posts?.content 
@@ -338,15 +340,15 @@ const NotificationScreen = () => {
             : "";
           if (item.posts?.repost_id) {
             return preview ? (
-              <>{renderSender()} mentioned you in a reshared post:{preview}</>
+              <>{renderSender()} {t('notification.mentionedPost')}:{preview}</>
             ) : (
-              <>{renderSender()} mentioned you in a reshared post</>
+              <>{renderSender()} {t('notification.mentionedPost')}</>
             );
           }
           return preview ? (
-            <>{renderSender()} mentioned you in a post:{preview}</>
+            <>{renderSender()} {t('notification.mentionedPost')}:{preview}</>
           ) : (
-            <>{renderSender()} mentioned you in a post</>
+            <>{renderSender()} {t('notification.mentionedPost')}</>
           );
         }
       default:
@@ -437,14 +439,14 @@ const NotificationScreen = () => {
                 onPress={() => handleAcceptConnection(item)} 
                 style={styles.acceptButton}
               >
-                <Text style={styles.acceptButtonText}>Accept</Text>
+                <Text style={styles.acceptButtonText}>{t('connections.accept')}</Text>
               </Pressable>
               
               <Pressable 
                 onPress={() => handleDeclineConnection(item)} 
                 style={styles.declineButton}
               >
-                <Text style={styles.declineButtonText}>Decline</Text>
+                <Text style={styles.declineButtonText}>{t('connections.decline')}</Text>
               </Pressable>
             </View>
           )}
@@ -465,17 +467,17 @@ const NotificationScreen = () => {
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} style={styles.headerLeft}>
             <Back width={24} height={24} />
-            <Text style={styles.headerTitle}>Notifications</Text>
+            <Text style={styles.headerTitle}>{t('notification.title')}</Text>
           </Pressable>
           {notifications.some(n => !n.is_read) && (
             <Pressable onPress={handleMarkAllRead} style={styles.markAllRead}>
-              <Text style={styles.markAllReadText}>Mark all as read</Text>
+              <Text style={styles.markAllReadText}>{t('notification.markAllRead')}</Text>
             </Pressable>
           )}
         </View>
 
         {loading ? (
-          <Preloader text="Loading notifications..." />
+          <Preloader text={t('feed.loading')} />
         ) : (
           <FlatList
             data={notifications}
@@ -493,9 +495,9 @@ const NotificationScreen = () => {
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyIcon}><Notification width={30} height={30} /></Text>
-                <Text style={styles.emptyText}>All caught up!</Text>
+                <Text style={styles.emptyText}>{t('notification.allCaughtUp')}</Text>
                 <Text style={styles.emptySubText}>
-                  {"When other users react, comment, mention or connect with you, they'll show up here."}
+                  {t('notification.emptySub')}
                 </Text>
               </View>
             }
