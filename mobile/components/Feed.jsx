@@ -621,7 +621,12 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
 
       if (insertError) throw insertError;
 
-      Alert.alert("Success", isAvatarPost ? "Profile picture updated successfully!" : "Cover photo updated successfully!");
+      Alert.alert(
+        t('settings.selectLanguage') === 'Select Language' ? 'Success' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Éxito' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Succès' : 'Sucesso',
+        isAvatarPost 
+          ? (t('settings.selectLanguage') === 'Select Language' ? 'Profile picture updated successfully!' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? '¡Foto de perfil actualizada con éxito!' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Photo de profil mise à jour avec succès !' : 'Foto de perfil atualizada com sucesso!')
+          : (t('settings.selectLanguage') === 'Select Language' ? 'Cover photo updated successfully!' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? '¡Foto de portada actualizada con éxito!' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Photo de couverture mise à jour avec succès !' : 'Foto de capa atualizada com sucesso!')
+      );
 
       handleClosePhotoViewer();
       if (onProfileImageUpdated) {
@@ -1221,12 +1226,16 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
                 <Text style={styles.name}>
                   {item.user.name}
                   {item.repost_id ? (
-                    <Text style={styles.sharedText}> shared a post</Text>
+                    <Text style={styles.sharedText}>
+                      {" "}{t('settings.selectLanguage') === 'Select Language' ? 'shared a post' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'compartió una publicación' : t('settings.selectLanguage') === 'Choisir la langue' ? 'a partagé une publication' : 'compartilhou uma publicação'}
+                    </Text>
                   ) : null}
                 </Text>
                 {isUpdatePost && (
                   <Text style={styles.feedUpdateText}>
-                    {" "}{item.content}
+                    {" "}{item.content === "updated their profile picture"
+                      ? (t('settings.selectLanguage') === 'Select Language' ? 'updated their profile picture' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'actualizó su foto de perfil' : t('settings.selectLanguage') === 'Choisir la langue' ? 'a mis à jour sa photo de profil' : 'atualizou sua foto de perfil')
+                      : (t('settings.selectLanguage') === 'Select Language' ? 'updated their cover photo' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'actualizó su foto de portada' : t('settings.selectLanguage') === 'Choisir la langue' ? 'a mis à jour sa photo de couverture' : 'atualizou sua foto de capa')}
                   </Text>
                 )}
               </View>
@@ -1839,8 +1848,8 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
                           <EditIcon size={16} color="#333" />
                           <Text style={styles.optionText}>
                             {activeItem.content === "updated their profile picture"
-                              ? "Upload New Profile Picture"
-                              : "Upload New Cover Photo"}
+                              ? (t('settings.selectLanguage') === 'Select Language' ? 'Upload New Profile Picture' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Subir nueva foto de perfil' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Télécharger une nouvelle photo de profil' : 'Enviar nova foto de perfil')
+                              : (t('settings.selectLanguage') === 'Select Language' ? 'Upload New Cover Photo' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Subir nueva foto de portada' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Télécharger une nouvelle photo de couverture' : 'Enviar nova foto de capa')}
                           </Text>
                         </TouchableOpacity>
                       ) : (
