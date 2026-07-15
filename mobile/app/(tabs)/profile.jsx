@@ -613,39 +613,39 @@ const Profile = () => {
     {
       id: "1",
       icon: <Email width={scale(25.94)} height={scale(25.94)} />,
-      title: "Email",
-      description: userData?.email || "No email added yet",
+      title: t('settings.selectLanguage') === 'Select Language' ? 'Email' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Correo electrónico' : t('settings.selectLanguage') === 'Choisir la langue' ? 'E-mail' : 'E-mail',
+      description: userData?.email || (t('settings.selectLanguage') === 'Select Language' ? 'No email added yet' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Sin correo electrónico añadido aún' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Aucun e-mail ajouté pour le moment' : 'Nenhum e-mail adicionado ainda'),
     },
     {
       id: "2",
       icon: <About width={scale(25.94)} height={scale(25.94)} />,
-      title: "About",
-      description: userData?.bio || "No bio added yet",
+      title: t('settings.selectLanguage') === 'Select Language' ? 'About' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Sobre mí' : t('settings.selectLanguage') === 'Choisir la langue' ? 'À propos de' : 'Sobre',
+      description: userData?.bio || (t('settings.selectLanguage') === 'Select Language' ? 'No bio added yet' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Sin biografía añadida aún' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Aucune biographie ajoutée pour le moment' : 'Nenhuma biografia adicionada ainda'),
     },
      {
       id: "3",
       icon: <Phone width={scale(25.94)} height={scale(25.94)} />,
-      title: "Phone",
-      description: userData?.phone || "No phone added yet",
+      title: t('settings.selectLanguage') === 'Select Language' ? 'Phone' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Teléfono' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Téléphone' : 'Telefone',
+      description: userData?.phone || (t('settings.selectLanguage') === 'Select Language' ? 'No phone added yet' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Sin teléfono añadido aún' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Aucun téléphone ajouté pour le moment' : 'Nenhum telefone adicionado ainda'),
     },
     {
       id: "4",
       icon: <Work width={scale(25.94)} height={scale(25.94)} />,
-      title: "Work",
-      description: "Software Engineer",
+      title: t('settings.selectLanguage') === 'Select Language' ? 'Work' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Trabajo' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Travail' : 'Trabalho',
+      description: userData?.work || (t('settings.selectLanguage') === 'Select Language' ? 'Software Engineer' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Ingeniero de Software' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Ingénieur Logiciel' : 'Engenheiro de Software'),
     },
      {
       id: "5",
       icon: <Education width={scale(25.94)} height={scale(25.94)} />,
-      title: "Education",
-      description: userData?.education || "No education added yet",
+      title: t('settings.selectLanguage') === 'Select Language' ? 'Education' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Educación' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Éducation' : 'Educação',
+      description: userData?.education || (t('settings.selectLanguage') === 'Select Language' ? 'No education added yet' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Sin educación añadida aún' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Pas d\'éducation ajoutée pour le moment' : 'Nenhuma formação adicionada ainda'),
     },
   ];
 
   const dataToRender = active === "Posts" ? feeds : details;
 
   if (loading) {
-    return <Preloader text="Loading profile..." />;
+    return <Preloader text={t('settings.selectLanguage') === 'Select Language' ? 'Loading profile...' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Cargando perfil...' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Chargement du profil...' : 'Carregando perfil...'} />;
   }
 
   // Show error if not logged in
@@ -653,14 +653,14 @@ const Profile = () => {
     return (
       <ScreenWrapper>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>❌ Not Logged In</Text>
+          <Text style={styles.errorText}>❌ {t('settings.selectLanguage') === 'Select Language' ? 'Not Logged In' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Sesión no iniciada' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Non connecté' : 'Não conectado'}</Text>
 
           <Text style={styles.errorSubText}>
-            Please login to view your profile
+            {t('settings.selectLanguage') === 'Select Language' ? 'Please login to view your profile' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Inicia sesión para ver tu perfil' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Veuillez vous connecter pour voir votre profil' : 'Por favor, faça o login para ver seu perfil'}
           </Text>
 
           <Button
-            text="Go to Login"
+            text={t('auth.backToLogin') || "Go to Login"}
             action={() => router.push("/(auth)/login")}
             bgColor={COLORS.primary}
             textColor="#fff"
@@ -676,12 +676,12 @@ const Profile = () => {
     return (
       <ScreenWrapper>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}> Failed to load profile</Text>
+          <Text style={styles.errorText}>❌ {t('settings.selectLanguage') === 'Select Language' ? 'Failed to load profile' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Error al cargar el perfil' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Échec du chargement du profil' : 'Falha ao carregar o perfil'}</Text>
 
           <Text style={styles.errorSubText}>{error}</Text>
 
           <Button
-            text="Logout"
+            text={t('settings.logOut') || "Logout"}
             action={handleLogout}
             bgColor={COLORS.primary}
             textColor="#fff"
@@ -916,7 +916,7 @@ const Profile = () => {
                       {followingCount}
                     </Text>
 
-                    <Text style={styles.statText}>Following</Text>
+                    <Text style={styles.statText}>{t('connections.following')}</Text>
                   </Pressable>
                 </View>
               </View>
@@ -1002,7 +1002,13 @@ const Profile = () => {
                 <Ionicons name="arrow-back" size={24} color="#1F2937" />
               </TouchableOpacity>
               <Text style={styles.menuHeaderTitle}>
-                {currentMenuView === "menu" ? "Profile Menu" : currentMenuView === "folders" ? "Photos/Videos" : selectedFolder === "avatar" ? "Profile Pictures" : "Cover Photos"}
+                {currentMenuView === "menu" 
+                  ? (t('settings.selectLanguage') === 'Select Language' ? 'Profile Menu' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Menú de perfil' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Menu du profil' : 'Menu de perfil') 
+                  : currentMenuView === "folders" 
+                    ? t('settings.photosVideos') 
+                    : selectedFolder === "avatar" 
+                      ? (t('settings.selectLanguage') === 'Select Language' ? 'Profile Pictures' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Fotos de perfil' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Photos de profil' : 'Fotos de perfil') 
+                      : (t('settings.selectLanguage') === 'Select Language' ? 'Cover Photos' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Fotos de portada' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Photos de couverture' : 'Fotos de capa')}
               </Text>
               <View style={{ width: 24 }} />
             </View>
@@ -1072,8 +1078,8 @@ const Profile = () => {
                       <View style={styles.folderIconBg}>
                         <Ionicons name="folder" size={48} color="#4285F4" />
                       </View>
-                      <Text style={styles.folderTitle}>Profile Pictures</Text>
-                      <Text style={styles.folderCount}>{avatarCount} items</Text>
+                      <Text style={styles.folderTitle}>{t('settings.selectLanguage') === 'Select Language' ? 'Profile Pictures' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Fotos de perfil' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Photos de profil' : 'Fotos de perfil'}</Text>
+                      <Text style={styles.folderCount}>{avatarCount} {t('settings.selectLanguage') === 'Select Language' ? 'items' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'elementos' : t('settings.selectLanguage') === 'Choisir la langue' ? 'éléments' : 'itens'}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -1086,8 +1092,8 @@ const Profile = () => {
                       <View style={styles.folderIconBg}>
                         <Ionicons name="folder" size={48} color="#34A853" />
                       </View>
-                      <Text style={styles.folderTitle}>Cover Photos</Text>
-                      <Text style={styles.folderCount}>{bannerCount} items</Text>
+                      <Text style={styles.folderTitle}>{t('settings.selectLanguage') === 'Select Language' ? 'Cover Photos' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Fotos de portada' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Photos de couverture' : 'Fotos de capa'}</Text>
+                      <Text style={styles.folderCount}>{bannerCount} {t('settings.selectLanguage') === 'Select Language' ? 'items' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'elementos' : t('settings.selectLanguage') === 'Choisir la langue' ? 'éléments' : 'itens'}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -1100,8 +1106,8 @@ const Profile = () => {
                       <View style={styles.folderIconBg}>
                         <Ionicons name="folder" size={48} color="#FBBC05" />
                       </View>
-                      <Text style={styles.folderTitle}>Timeline Photos</Text>
-                      <Text style={styles.folderCount}>{timelineCount} items</Text>
+                      <Text style={styles.folderTitle}>{t('settings.selectLanguage') === 'Select Language' ? 'Timeline Photos' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Fotos de la línea de tiempo' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Photos du fil' : 'Fotos da linha do tempo'}</Text>
+                      <Text style={styles.folderCount}>{timelineCount} {t('settings.selectLanguage') === 'Select Language' ? 'items' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'elementos' : t('settings.selectLanguage') === 'Choisir la langue' ? 'éléments' : 'itens'}</Text>
                     </TouchableOpacity>
                   </View>
                 );
@@ -1112,7 +1118,7 @@ const Profile = () => {
                   return (
                     <View style={styles.emptyGridContainer}>
                       <Ionicons name="images-outline" size={48} color="#D1D5DB" />
-                      <Text style={styles.emptyGridText}>No past photos found in this folder.</Text>
+                      <Text style={styles.emptyGridText}>{t('settings.selectLanguage') === 'Select Language' ? 'No past photos found in this folder.' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'No se encontraron fotos anteriores en esta carpeta.' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Aucune photo précédente trouvée dans ce dossier.' : 'Nenhuma foto antiga encontrada nesta pasta.'}</Text>
                     </View>
                   );
                 }
@@ -1166,7 +1172,7 @@ const Profile = () => {
               >
                 <Ionicons name="close" size={28} color="#FFFFFF" />
               </TouchableOpacity>
-              <Text style={styles.previewTitle}>Photo Preview</Text>
+              <Text style={styles.previewTitle}>{t('settings.selectLanguage') === 'Select Language' ? 'Photo Preview' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Vista previa de foto' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Aperçu de la photo' : 'Pré-visualização da foto'}</Text>
               {selectedPreviewPhoto && isOwnProfile ? (
                 <TouchableOpacity
                   onPress={() => setIsOptionsMenuVisible(!isOptionsMenuVisible)}
@@ -1227,7 +1233,7 @@ const Profile = () => {
                       }}
                     >
                       <Ionicons name="person-circle-outline" size={18} color="#FFFFFF" />
-                      <Text style={styles.dropdownItemText}>Set as Profile Picture</Text>
+                      <Text style={styles.dropdownItemText}>{t('settings.selectLanguage') === 'Select Language' ? 'Set as Profile Picture' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Establecer como foto de perfil' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Définir comme photo de profil' : 'Definir como foto de perfil'}</Text>
                     </TouchableOpacity>
                   )}
 
@@ -1240,7 +1246,7 @@ const Profile = () => {
                       }}
                     >
                       <Ionicons name="image-outline" size={18} color="#FFFFFF" />
-                      <Text style={styles.dropdownItemText}>Set as Cover Photo</Text>
+                      <Text style={styles.dropdownItemText}>{t('settings.selectLanguage') === 'Select Language' ? 'Set as Cover Photo' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Establecer como foto de portada' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Définir como photo de couverture' : 'Definir como foto de capa'}</Text>
                     </TouchableOpacity>
                   )}
 
@@ -1253,7 +1259,7 @@ const Profile = () => {
                       }}
                     >
                       <Ionicons name="trash-outline" size={18} color="#EF4444" />
-                      <Text style={[styles.dropdownItemText, { color: '#EF4444' }]}>Delete Photo</Text>
+                      <Text style={[styles.dropdownItemText, { color: '#EF4444' }]}>{t('settings.selectLanguage') === 'Select Language' ? 'Delete Photo' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Eliminar foto' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Supprimer la photo' : 'Excluir foto'}</Text>
                     </TouchableOpacity>
                   )}
 
@@ -1264,7 +1270,7 @@ const Profile = () => {
                     onPress={() => setIsOptionsMenuVisible(false)}
                   >
                     <Ionicons name="close-outline" size={18} color="#9CA3AF" />
-                    <Text style={[styles.dropdownItemText, { color: '#9CA3AF' }]}>Cancel</Text>
+                    <Text style={[styles.dropdownItemText, { color: '#9CA3AF' }]}>{t('feed.cancel') || 'Cancel'}</Text>
                   </TouchableOpacity>
                 </View>
               </>
