@@ -1352,17 +1352,18 @@ const styles = createResponsiveStyleSheet({
 
   stats: {
     flexDirection: "row",
-    justifyContent: "center",
+    justifyContent: "space-between",
     alignItems: "center",
     borderWidth: 1,
     borderColor: COLORS.gray,
     borderRadius: 10,
     paddingVertical: verticalScale(10),
-    gap: scale(20),
+    paddingHorizontal: scale(10),
     marginVertical: scale(20),
   },
 
   stat: {
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1375,8 +1376,9 @@ const styles = createResponsiveStyleSheet({
 
   statText: {
     fontFamily: TYPOGRAPHY.regular,
-    fontSize: scale(12),
+    fontSize: scale(11),
     color: "#000000",
+    textAlign: "center",
   },
 
   lines: {
