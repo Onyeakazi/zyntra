@@ -27,13 +27,79 @@ import COLORS from '../constants/colors';
 import { StatusBar } from 'expo-status-bar';
 
 export default function Comments() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { postId } = useLocalSearchParams();
   const router = useRouter();
 
   // Translation States for Comments and Replies
   const [translatedComments, setTranslatedComments] = useState({});
   const [translatingCommentIds, setTranslatingCommentIds] = useState({});
+
+  // Auto-translate comments on list load / language change
+  useEffect(() => {
+    let active = true;
+
+    const autoTranslateAllComments = async () => {
+      const activeLang = (i18n?.language || 'en').toLowerCase().split('-')[0];
+      if (activeLang === 'en') {
+        if (active) {
+          setTranslatedComments({});
+        }
+        return;
+      }
+
+      // Collect all comments and replies that need translation
+      const listToTranslate = [];
+      comments.forEach(comment => {
+        if (comment.content && !translatedComments[comment.id] && !translatingCommentIds[comment.id]) {
+          listToTranslate.push({ id: comment.id, content: comment.content });
+        }
+        if (comment.replies) {
+          comment.replies.forEach(reply => {
+            if (reply.content && !translatedComments[reply.id] && !translatingCommentIds[reply.id]) {
+              listToTranslate.push({ id: reply.id, content: reply.content });
+            }
+          });
+        }
+      });
+
+      if (listToTranslate.length === 0) return;
+
+      try {
+        const promises = listToTranslate.map(async (c) => {
+          try {
+            const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${activeLang}&dt=t&q=${encodeURIComponent(c.content)}`);
+            const data = await res.json();
+            const result = data[0].map(x => x[0]).join('');
+            return { id: c.id, text: result };
+          } catch (e) {
+            console.log(`Failed to auto-translate comment ${c.id}:`, e);
+            return null;
+          }
+        });
+
+        const results = await Promise.all(promises);
+        const newTranslations = {};
+        results.forEach(res => {
+          if (res) {
+            newTranslations[res.id] = res.text;
+          }
+        });
+
+        if (active && Object.keys(newTranslations).length > 0) {
+          setTranslatedComments(prev => ({ ...prev, ...newTranslations }));
+        }
+      } catch (err) {
+        console.log("Error in batch comments translation:", err);
+      }
+    };
+
+    autoTranslateAllComments();
+
+    return () => {
+      active = false;
+    };
+  }, [comments, i18n?.language]);
 
   const handleTranslateComment = async (commentId, content) => {
     if (translatedComments[commentId]) {
@@ -47,7 +113,7 @@ export default function Comments() {
     
     setTranslatingCommentIds(prev => ({ ...prev, [commentId]: true }));
     try {
-      const activeLang = t('settings.selectLanguage') === 'Select Language' ? 'en' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'es' : t('settings.selectLanguage') === 'Choisir la langue' ? 'fr' : 'pt';
+      const activeLang = (i18n?.language || 'en').toLowerCase().split('-')[0];
       const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${activeLang}&dt=t&q=${encodeURIComponent(content)}`);
       const data = await res.json();
       const result = data[0].map(x => x[0]).join('');
@@ -577,15 +643,17 @@ export default function Comments() {
               <Text style={styles.actionButtonText}>{t('feed.repostNow') === 'Repost Now' ? 'Reply' : t('feed.repostNow') === 'Compartir ahora' ? 'Responder' : t('feed.repostNow') === 'Repartager' ? 'Répondre' : 'Responder'}</Text>
             </Pressable>
 
-            <Pressable onPress={() => handleTranslateComment(reply.id, reply.content)} style={styles.actionButton}>
-              <Text style={[styles.actionButtonText, { color: COLORS.accent }]}>
-                {translatingCommentIds[reply.id] 
-                  ? (t('settings.selectLanguage') === 'Select Language' ? 'Translating...' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Traduciendo...' : 'Traduction...')
-                  : translatedComments[reply.id] 
-                    ? (t('settings.selectLanguage') === 'Select Language' ? 'See Original' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Ver original' : 'Voir l\'original')
-                    : (t('settings.selectLanguage') === 'Select Language' ? 'See Translation' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Ver traducción' : 'Voir la traduction')}
-              </Text>
-            </Pressable>
+            {(i18n?.language || 'en').toLowerCase().split('-')[0] !== 'en' && (
+              <Pressable onPress={() => handleTranslateComment(reply.id, reply.content)} style={styles.actionButton}>
+                <Text style={[styles.actionButtonText, { color: COLORS.accent }]}>
+                  {translatingCommentIds[reply.id] 
+                    ? 'Translating...'
+                    : translatedComments[reply.id] 
+                      ? 'See Original'
+                      : 'See Translation'}
+                </Text>
+              </Pressable>
+            )}
 
             <Text style={styles.commentTime}>{formatCommentTime(reply.created_at)}</Text>
 
@@ -672,15 +740,17 @@ export default function Comments() {
                 <Text style={styles.actionButtonText}>{t('feed.repostNow') === 'Repost Now' ? 'Reply' : t('feed.repostNow') === 'Compartir ahora' ? 'Responder' : t('feed.repostNow') === 'Repartager' ? 'Répondre' : 'Responder'}</Text>
               </Pressable>
 
-              <Pressable onPress={() => handleTranslateComment(item.id, item.content)} style={styles.actionButton}>
-                <Text style={[styles.actionButtonText, { color: COLORS.accent }]}>
-                  {translatingCommentIds[item.id] 
-                    ? (t('settings.selectLanguage') === 'Select Language' ? 'Translating...' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Traduciendo...' : 'Traduction...')
-                    : translatedComments[item.id] 
-                      ? (t('settings.selectLanguage') === 'Select Language' ? 'See Original' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Ver original' : 'Voir l\'original')
-                      : (t('settings.selectLanguage') === 'Select Language' ? 'See Translation' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Ver traducción' : 'Voir la traduction')}
-                </Text>
-              </Pressable>
+              {(i18n?.language || 'en').toLowerCase().split('-')[0] !== 'en' && (
+                <Pressable onPress={() => handleTranslateComment(item.id, item.content)} style={styles.actionButton}>
+                  <Text style={[styles.actionButtonText, { color: COLORS.accent }]}>
+                    {translatingCommentIds[item.id] 
+                      ? 'Translating...'
+                      : translatedComments[item.id] 
+                        ? 'See Original'
+                        : 'See Translation'}
+                  </Text>
+                </Pressable>
+              )}
 
               <Text style={styles.commentTime}>{formatCommentTime(item.created_at)}</Text>
 

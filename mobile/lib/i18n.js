@@ -32,10 +32,16 @@ i18n
   });
 
 // 2. Load manually saved language preference on start
-AsyncStorage.getItem('user-language').then((savedLanguage) => {
-  if (savedLanguage && supportedLanguages.includes(savedLanguage)) {
-    i18n.changeLanguage(savedLanguage);
-  }
-});
+if (typeof window !== 'undefined') {
+  AsyncStorage.getItem('user-language')
+    .then((savedLanguage) => {
+      if (savedLanguage && supportedLanguages.includes(savedLanguage)) {
+        i18n.changeLanguage(savedLanguage);
+      }
+    })
+    .catch((err) => {
+      console.log("Error loading saved language from AsyncStorage:", err);
+    });
+}
 
 export default i18n;

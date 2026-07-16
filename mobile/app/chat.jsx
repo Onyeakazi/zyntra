@@ -13,6 +13,8 @@ import {
   Keyboard
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import i18n from 'i18next';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import createResponsiveStyleSheet from '../utils/responsiveStyleSheet';
 import ScreenWrapper from '../components/ScreenWrapper';
 import StoryViewer from '../components/StoryViewer';
@@ -111,15 +113,41 @@ const formatMessageTimeLabel = (dateString) => {
   const diffTime = dNow.getTime() - dDate.getTime();
   const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
   
+  const activeLang = (i18n.language || 'en').toLowerCase().split('-')[0];
+
   if (diffDays === 0) {
+    if (activeLang === 'es') return `Hoy ${timeStr}`;
+    if (activeLang === 'fr') return `Aujourd'hui ${timeStr}`;
+    if (activeLang === 'pt') return `Hoje ${timeStr}`;
     return `Today ${timeStr}`;
   } else if (diffDays === 1) {
+    if (activeLang === 'es') return `Ayer ${timeStr}`;
+    if (activeLang === 'fr') return `Hier ${timeStr}`;
+    if (activeLang === 'pt') return `Ontem ${timeStr}`;
     return `Yesterday ${timeStr}`;
   } else {
-    const monthNames = [
+    const monthNamesEn = [
       "January", "February", "March", "April", "May", "June",
       "July", "August", "September", "October", "November", "December"
     ];
+    const monthNamesEs = [
+      "enero", "febrero", "marzo", "abril", "mayo", "junio",
+      "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+    ];
+    const monthNamesFr = [
+      "janvier", "février", "mars", "avril", "mai", "juin",
+      "juillet", "août", "septembre", "octobre", "novembre", "décembre"
+    ];
+    const monthNamesPt = [
+      "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+      "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"
+    ];
+    
+    let monthNames = monthNamesEn;
+    if (activeLang === 'es') monthNames = monthNamesEs;
+    else if (activeLang === 'fr') monthNames = monthNamesFr;
+    else if (activeLang === 'pt') monthNames = monthNamesPt;
+
     const month = monthNames[date.getMonth()];
     const day = date.getDate();
     
@@ -132,10 +160,42 @@ const formatMessageTimeLabel = (dateString) => {
 };
 
 const ChatRoom = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const router = useRouter();
   const params = useLocalSearchParams();
   const currentUserId = auth.currentUser?.uid;
+
+  // Translation States for Chat Messages
+  const [translatedMessages, setTranslatedMessages] = useState({});
+  const [translatingMessageIds, setTranslatingMessageIds] = useState({});
+
+  const handleTranslateMessage = async (messageId, content) => {
+    if (translatedMessages[messageId]) {
+      setTranslatedMessages(prev => {
+        const next = { ...prev };
+        delete next[messageId];
+        return next;
+      });
+      return;
+    }
+    
+    setTranslatingMessageIds(prev => ({ ...prev, [messageId]: true }));
+    try {
+      const activeLang = (i18n?.language || 'en').toLowerCase().split('-')[0];
+      const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${activeLang}&dt=t&q=${encodeURIComponent(content)}`);
+      const data = await res.json();
+      const result = data[0].map(x => x[0]).join('');
+      setTranslatedMessages(prev => ({ ...prev, [messageId]: result }));
+    } catch (e) {
+      console.log("Message translation error:", e);
+    } finally {
+      setTranslatingMessageIds(prev => {
+        const next = { ...prev };
+        delete next[messageId];
+        return next;
+      });
+    }
+  };
 
   const conversationIdParam = params.conversationId;
   const recipientIdParam = params.recipientId;
@@ -169,6 +229,7 @@ const ChatRoom = () => {
   const [sending, setSending] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [onlineUserIds, setOnlineUserIds] = useState([]);
+  const [activeStatusEnabled, setActiveStatusEnabled] = useState(true);
 
   // Story viewer overlay states
   const [isStoryViewerVisible, setIsStoryViewerVisible] = useState(false);
@@ -179,13 +240,29 @@ const ChatRoom = () => {
     // Set initial presence from global cache
     if (global.latestPresenceState) {
       const state = global.latestPresenceState;
-      const onlineIds = Object.keys(state).filter(id => id !== currentUserId);
+      const onlineIds = Object.keys(state).filter(id => {
+        if (id === currentUserId) return false;
+        const presences = state[id];
+        if (presences && presences.length > 0) {
+          const sorted = [...presences].sort((a, b) => new Date(b.online_at || 0) - new Date(a.online_at || 0));
+          if (sorted[0] && sorted[0].hide_active === true) return false;
+        }
+        return true;
+      });
       setOnlineUserIds(onlineIds);
     }
 
     // Subscribe to presence sync events emitted by TabLayout
     const presenceSub = DeviceEventEmitter.addListener('presence_sync', (state) => {
-      const onlineIds = Object.keys(state).filter(id => id !== currentUserId);
+      const onlineIds = Object.keys(state).filter(id => {
+        if (id === currentUserId) return false;
+        const presences = state[id];
+        if (presences && presences.length > 0) {
+          const sorted = [...presences].sort((a, b) => new Date(b.online_at || 0) - new Date(a.online_at || 0));
+          if (sorted[0] && sorted[0].hide_active === true) return false;
+        }
+        return true;
+      });
       setOnlineUserIds(onlineIds);
     });
 
@@ -193,6 +270,20 @@ const ChatRoom = () => {
       presenceSub.remove();
     };
   }, [currentUserId]);
+
+  useEffect(() => {
+    const loadActiveStatusSetting = async () => {
+      try {
+        const val = await AsyncStorage.getItem('privacy_active_status');
+        setActiveStatusEnabled(val !== 'false');
+      } catch (err) {
+        console.error("Error loading active status setting:", err);
+      }
+    };
+    loadActiveStatusSetting();
+    const sub = DeviceEventEmitter.addListener('privacy_settings_changed', loadActiveStatusSetting);
+    return () => sub.remove();
+  }, []);
 
   // Setup dynamic details
   useEffect(() => {
@@ -344,7 +435,8 @@ const ChatRoom = () => {
           .filter(m => m.sender_id !== currentUserId && !m.is_read)
           .map(m => m.id);
 
-        if (unreadIds.length > 0) {
+        const readReceiptsPref = await AsyncStorage.getItem('privacy_read_receipts');
+        if (readReceiptsPref !== 'false' && unreadIds.length > 0) {
           await supabase
             .from("messages")
             .update({ is_read: true })
@@ -375,6 +467,9 @@ const ChatRoom = () => {
 
   const markMessageAsRead = async (msgId) => {
     try {
+      const readReceiptsPref = await AsyncStorage.getItem('privacy_read_receipts');
+      if (readReceiptsPref === 'false') return;
+
       await supabase
         .from("messages")
         .update({ is_read: true })
@@ -829,7 +924,7 @@ const ChatRoom = () => {
                     onPress={() => handlePressStoryReply(storyData, storyCreatorId)}
                   >
                     <Text style={[styles.storyReplyTitle, { color: isMyMessage ? 'rgba(255,255,255,0.7)' : '#888' }]}>
-                      Story Reply
+                      {t('settings.selectLanguage') === 'Select Language' ? 'Story Reply' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Respuesta a historia' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Réponse à la story' : 'Resposta à história'}
                     </Text>
                     <View style={styles.storyReplyBubblePreview}>
                       {storyData.type === 'text' ? (
@@ -854,8 +949,23 @@ const ChatRoom = () => {
                   </Pressable>
                 )}
                 <Text style={[styles.messageText, isMyMessage ? styles.myMessageText : styles.theirMessageText]}>
-                  {actualCommentText}
+                  {translatedMessages[item.id] || actualCommentText}
                 </Text>
+                {/* See Translation toggle under foreign text */}
+                {!isMyMessage && actualCommentText && actualCommentText.trim().length > 0 && (i18n.language || 'en').toLowerCase().split('-')[0] !== 'en' && (
+                  <Pressable 
+                    onPress={() => handleTranslateMessage(item.id, actualCommentText)}
+                    style={{ marginTop: 4, alignSelf: 'flex-start' }}
+                  >
+                    <Text style={{ fontSize: 11, fontFamily: TYPOGRAPHY.semiBold, color: '#3B82F6' }}>
+                      {translatingMessageIds[item.id] 
+                        ? 'Translating...' 
+                        : translatedMessages[item.id] 
+                          ? 'See Original' 
+                          : 'See Translation'}
+                    </Text>
+                  </Pressable>
+                )}
               </View>
             )}
           </View>
@@ -899,7 +1009,7 @@ const ChatRoom = () => {
           </Pressable>
           
           {recipient && (() => {
-            const isOnline = onlineUserIds.includes(recipient.id);
+            const isOnline = activeStatusEnabled && onlineUserIds.includes(recipient.id);
             return (
               <Pressable
                 onPress={() => router.push({

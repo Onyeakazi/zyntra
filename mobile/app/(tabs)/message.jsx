@@ -87,6 +87,7 @@ const MessageScreen = () => {
   const [searchQuery, setSearchQuery] = useState("");
 
   const [onlineUserIds, setOnlineUserIds] = useState([]);
+  const [presentUserIds, setPresentUserIds] = useState([]);
   const [connections, setConnections] = useState([]);
 
   // Vibe/Status note state
@@ -95,6 +96,7 @@ const MessageScreen = () => {
   const [onlineUserNotes, setOnlineUserNotes] = useState({});
   const [statusModalVisible, setStatusModalVisible] = useState(false);
   const [statusInputText, setStatusInputText] = useState("");
+  const [activeStatusEnabled, setActiveStatusEnabled] = useState(true);
 
   // Story viewer states
   const [activeStoryGroups, setActiveStoryGroups] = useState([]);
@@ -289,16 +291,28 @@ const MessageScreen = () => {
     // Set initial presence from global cache
     if (global.latestPresenceState) {
       const state = global.latestPresenceState;
-      const onlineIds = Object.keys(state).filter(id => id !== currentUserId);
+      const allPresentIds = Object.keys(state).filter(id => id !== currentUserId);
+      setPresentUserIds(allPresentIds);
+
+      const onlineIds = Object.keys(state).filter(id => {
+        if (id === currentUserId) return false;
+        const presences = state[id];
+        if (presences && presences.length > 0) {
+          const sorted = [...presences].sort((a, b) => new Date(b.online_at || 0) - new Date(a.online_at || 0));
+          if (sorted[0] && sorted[0].hide_active === true) return false;
+        }
+        return true;
+      });
       setOnlineUserIds(onlineIds);
 
       const notes = {};
       Object.keys(state).forEach(id => {
         const presences = state[id];
         if (presences && presences.length > 0) {
-          const firstPresence = presences[0];
-          if (firstPresence && firstPresence.status_note) {
-            notes[id] = firstPresence.status_note;
+          const sorted = [...presences].sort((a, b) => new Date(b.online_at || 0) - new Date(a.online_at || 0));
+          const latestPresence = sorted[0];
+          if (latestPresence && latestPresence.status_note) {
+            notes[id] = latestPresence.status_note;
           }
         }
       });
@@ -307,16 +321,28 @@ const MessageScreen = () => {
 
     // Subscribe to presence sync events emitted by TabLayout
     const presenceSub = DeviceEventEmitter.addListener('presence_sync', (state) => {
-      const onlineIds = Object.keys(state).filter(id => id !== currentUserId);
+      const allPresentIds = Object.keys(state).filter(id => id !== currentUserId);
+      setPresentUserIds(allPresentIds);
+
+      const onlineIds = Object.keys(state).filter(id => {
+        if (id === currentUserId) return false;
+        const presences = state[id];
+        if (presences && presences.length > 0) {
+          const sorted = [...presences].sort((a, b) => new Date(b.online_at || 0) - new Date(a.online_at || 0));
+          if (sorted[0] && sorted[0].hide_active === true) return false;
+        }
+        return true;
+      });
       setOnlineUserIds(onlineIds);
 
       const notes = {};
       Object.keys(state).forEach(id => {
         const presences = state[id];
         if (presences && presences.length > 0) {
-          const firstPresence = presences[0];
-          if (firstPresence && firstPresence.status_note) {
-            notes[id] = firstPresence.status_note;
+          const sorted = [...presences].sort((a, b) => new Date(b.online_at || 0) - new Date(a.online_at || 0));
+          const latestPresence = sorted[0];
+          if (latestPresence && latestPresence.status_note) {
+            notes[id] = latestPresence.status_note;
           }
         }
       });
@@ -386,6 +412,20 @@ const MessageScreen = () => {
       presenceSub.remove();
     };
   }, [currentUserId]);
+
+  useEffect(() => {
+    const loadActiveStatusSetting = async () => {
+      try {
+        const val = await AsyncStorage.getItem('privacy_active_status');
+        setActiveStatusEnabled(val !== 'false');
+      } catch (err) {
+        console.error("Error loading active status setting:", err);
+      }
+    };
+    loadActiveStatusSetting();
+    const sub = DeviceEventEmitter.addListener('privacy_settings_changed', loadActiveStatusSetting);
+    return () => sub.remove();
+  }, []);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -545,7 +585,7 @@ const MessageScreen = () => {
               activeStoryGroups.some(g => g.userId === recipient.id) ? styles.activeAvatarWithStory : null
             ]}
           />
-          {onlineUserIds.includes(recipient.id) && (
+          {activeStatusEnabled && onlineUserIds.includes(recipient.id) && (
             <View style={styles.greenDotIndicatorList} />
           )}
         </Pressable>
@@ -611,13 +651,13 @@ const MessageScreen = () => {
   if (currentUserProfile) {
     activeSliderData.push({
       id: currentUserId,
-      full_name: "My Status",
+      full_name: t('settings.selectLanguage') === 'Select Language' ? 'My Status' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Mi estado' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Mon statut' : 'Meu status',
       avatar_url: currentUserProfile.avatar_url,
       isCurrentUser: true,
       status_note: myStatusNote
     });
   }
-  const onlineConnections = connections.filter(c => onlineUserIds.includes(c.id));
+  const onlineConnections = connections.filter(c => presentUserIds.includes(c.id) || !!onlineUserNotes[c.id]);
   onlineConnections.forEach(c => {
     activeSliderData.push({
       id: c.id,
@@ -703,7 +743,11 @@ const MessageScreen = () => {
                           hasActiveStory ? styles.activeAvatarWithStory : null
                         ]}
                       />
-                      <View style={styles.greenDotIndicator} />
+                      {isMe ? (
+                        activeStatusEnabled && <View style={styles.greenDotIndicator} />
+                      ) : (
+                        onlineUserIds.includes(item.id) && <View style={styles.greenDotIndicator} />
+                      )}
                       {isMe && (
                         <View style={styles.plusIconBadge}>
                           <Text style={styles.plusIconBadgeText}>+</Text>
@@ -711,7 +755,7 @@ const MessageScreen = () => {
                       )}
                     </View>
                     <Text style={styles.activeName} numberOfLines={1}>
-                      {isMe ? "My Status" : item.full_name.split(" ")[0]}
+                      {isMe ? (t('settings.selectLanguage') === 'Select Language' ? 'My Status' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Mi estado' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Mon statut' : 'Meu status') : item.full_name.split(" ")[0]}
                     </Text>
                     {item.status_note ? (
                       <Text style={styles.statusNoteText} numberOfLines={1}>
@@ -799,7 +843,7 @@ const MessageScreen = () => {
           <View style={styles.modalBackdrop}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>{t('settings.settingsTitle')}</Text>
+                <Text style={styles.modalTitle}>{t('settings.selectLanguage') === 'Select Language' ? 'Set Status Note' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Establecer nota de estado' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Définir une note de statut' : 'Definir nota de status'}</Text>
                 <Pressable onPress={() => setStatusModalVisible(false)}>
                   <Text style={styles.modalCloseButton}>✕</Text>
                 </Pressable>
@@ -817,18 +861,36 @@ const MessageScreen = () => {
                 autoFocus
               />
 
-              <Text style={styles.presetLabel}>{t('feed.repostNow')}</Text>
+              <Text style={styles.presetLabel}>{t('settings.selectLanguage') === 'Select Language' ? 'Select Preset' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Seleccionar predeterminado' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Choisir un préréglage' : 'Selecionar predefinição'}</Text>
               <View style={styles.presetsContainer}>
                 {[
-                  { text: "Available 💬" },
-                  { text: "Working 💻" },
-                  { text: "At gym 🏋️" },
-                  { text: "Chilling 🍹" },
-                  { text: "In meeting 🚫" },
-                  { text: "Out for lunch 🍔" },
+                  { 
+                    text: t('settings.selectLanguage') === 'Select Language' ? 'Available 💬' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Disponible 💬' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Disponible 💬' : 'Disponível 💬',
+                    val: "Available 💬"
+                  },
+                  { 
+                    text: t('settings.selectLanguage') === 'Select Language' ? 'Working 💻' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Trabajando 💻' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Au travail 💻' : 'Trabalhando 💻',
+                    val: "Working 💻"
+                  },
+                  { 
+                    text: t('settings.selectLanguage') === 'Select Language' ? 'At gym 🏋️' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'En el gimnasio 🏋️' : t('settings.selectLanguage') === 'Choisir la langue' ? 'À la salle de sport 🏋️' : 'Na academia 🏋️',
+                    val: "At gym 🏋️"
+                  },
+                  { 
+                    text: t('settings.selectLanguage') === 'Select Language' ? 'Chilling 🍹' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Relajándome 🍹' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Détente 🍹' : 'Relaxando 🍹',
+                    val: "Chilling 🍹"
+                  },
+                  { 
+                    text: t('settings.selectLanguage') === 'Select Language' ? 'In meeting 🚫' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'En reunión 🚫' : t('settings.selectLanguage') === 'Choisir la langue' ? 'En réunion 🚫' : 'Em reunião 🚫',
+                    val: "In meeting 🚫"
+                  },
+                  { 
+                    text: t('settings.selectLanguage') === 'Select Language' ? 'Out for lunch 🍔' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Almorzando 🍔' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Déjeuner dehors 🍔' : 'Almoçando 🍔',
+                    val: "Out for lunch 🍔"
+                  },
                 ].map((preset) => (
                   <Pressable
-                    key={preset.text}
+                    key={preset.val}
                     onPress={() => setStatusInputText(preset.text)}
                     style={[
                       styles.presetBubble,
@@ -871,7 +933,7 @@ const MessageScreen = () => {
                     }}
                     style={styles.clearStatusButton}
                   >
-                    <Text style={styles.clearStatusButtonText}>{"Clear Status"}</Text>
+                    <Text style={styles.clearStatusButtonText}>{t('settings.selectLanguage') === 'Select Language' ? 'Clear Status' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Borrar estado' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Effacer le statut' : 'Limpar status'}</Text>
                   </Pressable>
                 ) : null}
 
@@ -897,7 +959,7 @@ const MessageScreen = () => {
                   }}
                   style={styles.saveStatusButton}
                 >
-                  <Text style={styles.saveStatusButtonText}>{"Save"}</Text>
+                  <Text style={styles.saveStatusButtonText}>{t('settings.selectLanguage') === 'Select Language' ? 'Save' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Guardar' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Enregistrer' : 'Salvar'}</Text>
                 </Pressable>
               </View>
             </View>

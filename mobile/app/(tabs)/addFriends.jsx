@@ -89,14 +89,16 @@ const AddFriends = () => {
       
       const { data: suggestionsData, error: usersError } = await supabase
         .from("users")
-        .select("id, full_name, username, avatar_url, bio")
+        .select("id, full_name, username, avatar_url, bio, is_searchable")
         .not("id", "in", `(${excludeIds.join(",")})`)
         .limit(50);
 
       if (usersError) throw usersError;
 
+      const filteredSuggestions = (suggestionsData || []).filter(u => u.is_searchable !== false);
+
       setIncomingRequests(incomingRequestsList);
-      setUsers(suggestionsData || []);
+      setUsers(filteredSuggestions);
       setConnectedIds(activeConnIds);
       setMySentRequestIds(sentRequestStatus);
     } catch (err) {

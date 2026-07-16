@@ -125,6 +125,7 @@ const TabLayout = () => {
         let channel = null;
         let presenceChannel = null;
         let statusUpdateSub = null;
+        let privacySub = null;
         let userInboxChannel = null;
         let activeUserId = null;
 
@@ -178,10 +179,13 @@ const TabLayout = () => {
                             } catch (err) {
                                 console.error("Error reading saved status note:", err);
                             }
+                            
+                            const showActive = await AsyncStorage.getItem('privacy_active_status');
                             await presenceChannel.track({
                                 user_id: user.uid,
                                 online_at: new Date().toISOString(),
                                 status_note: savedNote,
+                                hide_active: showActive === 'false',
                             });
                         }
                     });
@@ -191,13 +195,34 @@ const TabLayout = () => {
                 statusUpdateSub = DeviceEventEmitter.addListener('update_status_note', async (newNote) => {
                     if (presenceChannel) {
                         try {
+                            const showActive = await AsyncStorage.getItem('privacy_active_status');
                             await presenceChannel.track({
                                 user_id: user.uid,
                                 online_at: new Date().toISOString(),
                                 status_note: newNote,
+                                hide_active: showActive === 'false',
                             });
                         } catch (err) {
                             console.error("Error tracking status note update:", err);
+                        }
+                    }
+                });
+
+                // Listen for local privacy settings changes
+                if (privacySub) privacySub.remove();
+                privacySub = DeviceEventEmitter.addListener('privacy_settings_changed', async () => {
+                    const showActive = await AsyncStorage.getItem('privacy_active_status');
+                    if (presenceChannel) {
+                        try {
+                            let savedNote = await AsyncStorage.getItem(`status_note_${user.uid}`) || "";
+                            await presenceChannel.track({
+                                user_id: user.uid,
+                                online_at: new Date().toISOString(),
+                                status_note: savedNote,
+                                hide_active: showActive === 'false',
+                            });
+                        } catch (err) {
+                            console.error("Error updating presence track based on privacy settings:", err);
                         }
                     }
                 });
@@ -319,6 +344,10 @@ const TabLayout = () => {
                     statusUpdateSub.remove();
                     statusUpdateSub = null;
                 }
+                if (privacySub) {
+                    privacySub.remove();
+                    privacySub = null;
+                }
                 if (userInboxChannel) {
                     await supabase.removeChannel(userInboxChannel);
                     userInboxChannel = null;
@@ -336,6 +365,9 @@ const TabLayout = () => {
             }
             if (statusUpdateSub) {
                 statusUpdateSub.remove();
+            }
+            if (privacySub) {
+                privacySub.remove();
             }
             if (userInboxChannel) {
                 supabase.removeChannel(userInboxChannel);

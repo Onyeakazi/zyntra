@@ -642,7 +642,8 @@ const Profile = () => {
     },
   ];
 
-  const dataToRender = active === "Posts" ? feeds : details;
+  const isProfileLocked = !isOwnProfile && userData?.is_private === true && connectionStatus !== "accepted";
+  const dataToRender = isProfileLocked ? [] : (active === "Posts" ? feeds : details);
 
   if (loading) {
     return <Preloader text={t('settings.selectLanguage') === 'Select Language' ? 'Loading profile...' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Cargando perfil...' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Chargement du profil...' : 'Carregando perfil...'} />;
@@ -706,6 +707,30 @@ const Profile = () => {
         }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        ListEmptyComponent={
+          isProfileLocked ? (
+            <View style={styles.lockedContainer}>
+              <View style={styles.lockedCard}>
+                <Ionicons name="lock-closed-outline" size={48} color="#438def" style={{ marginBottom: 12 }} />
+                <Text style={styles.lockedTitle}>
+                  {t('settings.selectLanguage') === 'Select Language' ? 'This Profile is Private' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Este perfil es privado' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Ce profil est privé' : 'Este perfil é privado'}
+                </Text>
+                <Text style={styles.lockedDescription}>
+                  {t('settings.selectLanguage') === 'Select Language' ? 'Send a connection request to see their posts and updates.' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Envía una solicitud de conexión para ver sus publicaciones y actualizaciones.' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Envoyez une demande de connexion pour voir ses publications.' : 'Envie uma solicitação de conexão para ver suas postagens.'}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>
+                {active === "Posts" 
+                  ? (t('settings.selectLanguage') === 'Select Language' ? 'No posts yet.' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Aún no hay publicaciones.' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Aucune publication pour le moment.' : 'Nenhuma publicação ainda.')
+                  : (t('settings.selectLanguage') === 'Select Language' ? 'No details provided.' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'No se proporcionaron detalles.' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Aucun détail fourni.' : 'Nenhum detalhe fornecido.')
+                }
+              </Text>
+            </View>
+          )
         }
         renderItem={({ item }) =>
           active === "Posts" ? (
@@ -891,10 +916,16 @@ const Profile = () => {
 
                    <Pressable 
                      style={styles.stat}
-                     onPress={() => router.push({
-                       pathname: "/connectionsList",
-                       params: { userId: userId || currentUserId, initialTab: "Followers" }
-                     })}
+                     onPress={() => {
+                       if (isProfileLocked) {
+                         Alert.alert(t('settings.selectLanguage') === 'Select Language' ? 'Private Profile' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Perfil Privado' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Profil Privé' : 'Perfil Privado', t('settings.selectLanguage') === 'Select Language' ? 'You must be connected to view their followers list.' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Debes estar conectado para ver su lista de seguidores.' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Vous devez être connecté pour voir leur liste d\'abonnés.' : 'Você deve estar conectado para ver a lista de seguidores deles.');
+                         return;
+                       }
+                       router.push({
+                         pathname: "/connectionsList",
+                         params: { userId: userId || currentUserId, initialTab: "Followers" }
+                       });
+                     }}
                    >
                      <Text style={styles.statNumber}>
                        {followersCount}
@@ -907,10 +938,16 @@ const Profile = () => {
 
                   <Pressable 
                     style={styles.stat}
-                    onPress={() => router.push({
-                      pathname: "/connectionsList",
-                      params: { userId: userId || currentUserId, initialTab: "Following" }
-                    })}
+                    onPress={() => {
+                      if (isProfileLocked) {
+                        Alert.alert(t('settings.selectLanguage') === 'Select Language' ? 'Private Profile' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Perfil Privado' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Profil Privé' : 'Perfil Privado', t('settings.selectLanguage') === 'Select Language' ? 'You must be connected to view their following list.' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Debes estar conectado para ver su lista de seguidos.' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Vous devez être connecté pour voir leur liste d\'abonnements.' : 'Você deve estar conectado para ver a lista de quem eles seguem.');
+                        return;
+                      }
+                      router.push({
+                        pathname: "/connectionsList",
+                        params: { userId: userId || currentUserId, initialTab: "Following" }
+                      });
+                    }}
                   >
                     <Text style={styles.statNumber}>
                       {followingCount}
@@ -922,43 +959,45 @@ const Profile = () => {
               </View>
 
               {/* TABS */}
-              <View style={styles.profileBtns}>
-                <Pressable
-                  style={styles.tabBtn}
-                  onPress={() => setActive("Posts")}
-                >
-                  <Text
-                    style={[
-                      styles.btn,
-                      active === "Posts" && styles.btnActive,
-                    ]}
+              {!isProfileLocked && (
+                <View style={styles.profileBtns}>
+                  <Pressable
+                    style={styles.tabBtn}
+                    onPress={() => setActive("Posts")}
                   >
-                    {t('feed.posts')}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.btn,
+                        active === "Posts" && styles.btnActive,
+                      ]}
+                    >
+                      {t('feed.posts')}
+                    </Text>
 
-                  {active === "Posts" && (
-                    <View style={styles.activeIndicator} />
-                  )}
-                </Pressable>
+                    {active === "Posts" && (
+                      <View style={styles.activeIndicator} />
+                    )}
+                  </Pressable>
 
-                <Pressable
-                  style={styles.tabBtn}
-                  onPress={() => setActive("Details")}
-                >
-                  <Text
-                    style={[
-                      styles.btn,
-                      active === "Details" && styles.btnActive,
-                    ]}
+                  <Pressable
+                    style={styles.tabBtn}
+                    onPress={() => setActive("Details")}
                   >
-                    {t('settings.selectLanguage') === 'Select Language' ? 'Details' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Detalles' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Détails' : 'Detalhes'}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.btn,
+                        active === "Details" && styles.btnActive,
+                      ]}
+                    >
+                      {t('settings.selectLanguage') === 'Select Language' ? 'Details' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Detalles' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Détails' : 'Detalhes'}
+                    </Text>
 
-                  {active === "Details" && (
-                    <View style={styles.activeIndicator} />
-                  )}
-                </Pressable>
-              </View>
+                    {active === "Details" && (
+                      <View style={styles.activeIndicator} />
+                    )}
+                  </Pressable>
+                </View>
+              )}
             </>
           ) : null
         }
@@ -1037,11 +1076,27 @@ const Profile = () => {
                   {label: t('settings.editProfile'), icon: "create-outline", action: () => { setIsMenuVisible(false); router.push("/editprofile"); } },
                   { label: t('settings.network'), icon: "people-outline", action: () => { setIsMenuVisible(false); router.push("/connectionsList"); } },
                   { label: t('settings.photosVideos'), icon: "images-outline", action: () => { fetchPhotoHistory(); setCurrentMenuView("folders"); } },
-                  { label: t('settings.group'), icon: "chatbubbles-outline", action: () => Alert.alert("Groups", "Groups feature coming soon.") },
-                  { label: t('settings.privacy'), icon: "lock-closed-outline", action: () => Alert.alert("Privacy", "Privacy options coming soon.") },
-                  { label: t('settings.searchProfile'), icon: "search-outline", action: () => Alert.alert("Search Profile", "Profile searching is available on the Home tab.") },
-                  { label: t('settings.settingsTitle'), icon: "settings-outline", action: () => Alert.alert("Settings", "General settings coming soon.") },
-                  { label: t('settings.aboutUs'), icon: "information-circle-outline", action: () => Alert.alert("About Us", "Zyntra is a premium professional networking platform.") },
+                  { label: t('settings.group'), icon: "chatbubbles-outline", action: () => Alert.alert(t('settings.selectLanguage') === 'Select Language' ? 'Groups' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Grupos' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Groupes' : 'Grupos', t('settings.selectLanguage') === 'Select Language' ? 'Groups feature coming soon.' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'La función de grupos estará disponible pronto.' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Fonctionnalité de groupes à venir bientôt.' : 'O recurso de grupos estará disponível em breve.') },
+                  { label: t('settings.privacy'), icon: "lock-closed-outline", action: () => { setIsMenuVisible(false); router.push("/privacy"); } },
+                  { label: t('settings.searchProfile'), icon: "search-outline", action: () => { setIsMenuVisible(false); router.push({ pathname: "/(tabs)/", params: { openSearch: "true" } }); } },
+                  { label: t('settings.settingsTitle'), icon: "settings-outline", action: () => { setIsMenuVisible(false); router.push("/settings"); } },
+                  { label: t('settings.aboutUs'), icon: "information-circle-outline", action: () => {
+                    const lang = t('settings.selectLanguage');
+                    let title = "About Zyntra";
+                    let msg = "Zyntra is a premium professional networking platform designed to build connections, grow careers, and share ideas.\n\n---\nTerms & Conditions:\n1. Acceptable Use: Please be respectful and post content that follows community guidelines.\n2. Safety: Harassment, spam, or abusive behavior are strictly prohibited.\n3. Content: You own your posts but grant Zyntra a license to display them.";
+                    
+                    if (lang === 'Seleccionar Idioma') {
+                      title = "Acerca de Zyntra";
+                      msg = "Zyntra es una plataforma de redes profesionales de primer nivel diseñada para crear conexiones, hacer crecer carreras e intercambiar ideas.\n\n---\nTérminos y Condiciones:\n1. Uso Aceptable: Sea respetuoso y publique contenido que siga las pautas de la comunidad.\n2. Seguridad: El acoso, el spam o el comportamiento abusivo están estrictamente prohibidos.\n3. Contenido: Usted es dueño de sus publicaciones, pero otorga a Zyntra una licencia para mostrarlas.";
+                    } else if (lang === 'Choisir la langue') {
+                      title = "À propos de Zyntra";
+                      msg = "Zyntra est une plateforme de réseautage professionnel de premier ordre conçue pour créer des liens, développer des carrières et partager des idées.\n\n---\nConditions Générales :\n1. Utilisation acceptable : Veuillez être respectueux et publier du contenu conforme aux règles de la communauté.\n2. Sécurité : Le harcèlement, le spam ou les comportements abusifs sont strictement interdits.\n3. Contenu : Vous êtes propriétaire de vos publications mais accordez à Zyntra le droit de les afficher.";
+                    } else if (lang === 'Definir idioma') {
+                      title = "Sobre o Zyntra";
+                      msg = "O Zyntra é uma plataforma de rede profissional premium projetada para criar conexões, expandir carreiras e compartilhar ideias.\n\n---\nTermos e Condições:\n1. Uso Aceitável: Seja respeitoso e publique conteúdo que siga as diretrizes da comunidade.\n2. Segurança: Assédio, spam ou comportamento abusivo são estritamente proibidos.\n3. Conteúdo: Você possui suas postagens, mas concede ao Zyntra uma licença para exibi-las.";
+                    }
+                    Alert.alert(title, msg);
+                  }},
                   { label: t('settings.language'), icon: "globe-outline", action: () => { setIsMenuVisible(false); setIsLanguageModalVisible(true); } },
                   { label: t('settings.logOut'), icon: "log-out-outline", action: () => { setIsMenuVisible(false); handleLogout(); }, isRed: true },
                 ];
@@ -1693,5 +1748,49 @@ const styles = createResponsiveStyleSheet({
     height: 1,
     backgroundColor: '#374151',
     marginVertical: 4,
+  },
+  lockedContainer: {
+    paddingHorizontal: 20,
+    marginTop: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lockedCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingVertical: 30,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  lockedTitle: {
+    fontSize: 18,
+    fontFamily: TYPOGRAPHY.bold,
+    color: '#111111',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  lockedDescription: {
+    fontSize: 14,
+    fontFamily: TYPOGRAPHY.regular,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  emptyContainer: {
+    paddingVertical: 50,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
+    fontFamily: TYPOGRAPHY.medium,
+    color: '#9CA3AF',
   },
 });

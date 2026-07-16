@@ -15,7 +15,7 @@ import { moderateScale, scale, verticalScale } from "../../utils/scale";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "../../lib/supabase";
 import { auth } from "../../config/firebase";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { formatPostTime } from "../../utils/timeFormat";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -34,6 +34,7 @@ const BackIcon = ({ color = "#111", size = 24 }) => (
 
 export default function Index() {
   const { t } = useTranslation();
+  const params = useLocalSearchParams();
   const [avatar, setAvatar] = useState(null);
   const [feeds, setFeeds] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -390,15 +391,18 @@ export default function Index() {
       try {
         const { data, error } = await supabase
           .from("users")
-          .select("id, full_name, username, avatar_url, bio")
+          .select("id, full_name, username, avatar_url, bio, is_searchable")
           .or(`full_name.ilike.%${trimmed}%,username.ilike.%${trimmed}%`)
           .limit(1);
         if (!error && data && data.length > 0) {
-          matchedUser = data[0];
-          setSearchResults(prev => {
-            if (prev.some(u => u.id === matchedUser.id)) return prev;
-            return [matchedUser, ...prev];
-          });
+          const first = data[0];
+          if (first.is_searchable !== false) {
+            matchedUser = first;
+            setSearchResults(prev => {
+              if (prev.some(u => u.id === matchedUser.id)) return prev;
+              return [matchedUser, ...prev];
+            });
+          }
         }
       } catch (err) {
         console.error("Error matching user on submit:", err);
@@ -531,12 +535,18 @@ export default function Index() {
       try {
         const { data, error } = await supabase
           .from("users")
-          .select("id, full_name, username, avatar_url, bio")
+          .select("id, full_name, username, avatar_url, bio, is_searchable")
           .or(`full_name.ilike.%${query}%,username.ilike.%${query}%`)
           .limit(20);
 
         if (!error && data) {
-          setSearchResults(data);
+          const currentUserId = auth.currentUser?.uid;
+          const filtered = data.filter(u => {
+            if (u.id === currentUserId) return false;
+            if (u.is_searchable === false) return false;
+            return true;
+          });
+          setSearchResults(filtered);
         }
       } catch (err) {
         console.error("Error searching profiles:", err);
@@ -592,7 +602,8 @@ export default function Index() {
             id,
             full_name,
             avatar_url,
-            username
+            username,
+            is_searchable
           ),
           original_post:repost_id (
             id,
@@ -605,7 +616,8 @@ export default function Index() {
               id,
               full_name,
               avatar_url,
-              username
+              username,
+              is_searchable
             )
           )
         `)
@@ -626,6 +638,7 @@ export default function Index() {
             post.user?.avatar_url && post.user.avatar_url.trim() !== ""
               ? { uri: post.user.avatar_url }
               : require("../../assets/images/prof.jpeg"),
+          is_searchable: post.user?.is_searchable,
         },
         content: post.content,
         time: formatPostTime(post.created_at),
@@ -647,6 +660,7 @@ export default function Index() {
               post.original_post.user?.avatar_url && post.original_post.user.avatar_url.trim() !== ""
                 ? { uri: post.original_post.user.avatar_url }
                 : require("../../assets/images/default.png"),
+            is_searchable: post.original_post.user?.is_searchable,
           }
         } : null,
         likes: "0",
@@ -676,7 +690,33 @@ export default function Index() {
         try {
           const stored = await AsyncStorage.getItem("recent_searches");
           if (stored) {
-            setRecentSearches(JSON.parse(stored));
+            const parsed = JSON.parse(stored);
+            const profileIds = parsed
+              .filter(item => item && typeof item === 'object' && item.type === 'profile')
+              .map(item => item.id);
+            
+            if (profileIds.length > 0) {
+              const { data: dbProfiles, error } = await supabase
+                .from("users")
+                .select("id, is_searchable")
+                .in("id", profileIds);
+              
+              if (!error && dbProfiles) {
+                const unsearchableIds = new Set(
+                  dbProfiles.filter(u => u.is_searchable === false).map(u => u.id)
+                );
+                const filtered = parsed.filter(item => {
+                  if (item && typeof item === 'object' && item.type === 'profile') {
+                    return !unsearchableIds.has(item.id);
+                  }
+                  return true;
+                });
+                setRecentSearches(filtered);
+                await AsyncStorage.setItem("recent_searches", JSON.stringify(filtered));
+                return;
+              }
+            }
+            setRecentSearches(parsed);
           }
         } catch (err) {
           console.error("Error loading recent searches on focus:", err);
@@ -691,6 +731,14 @@ export default function Index() {
       };
     }, [feeds.length, fetchAvatar, fetchActiveStories])
   );
+
+  // Listen to openSearch query parameter updates
+  useEffect(() => {
+    if (params?.openSearch === "true") {
+      setIsSearchActive(true);
+      router.setParams({ openSearch: undefined });
+    }
+  }, [params?.openSearch]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -809,6 +857,7 @@ export default function Index() {
   const filteredFeeds = feeds.filter(post => {
     const query = searchQuery.toLowerCase().trim();
     if (!query) return true;
+    if (post.user.is_searchable === false) return false;
     return (
       (post.content && post.content.toLowerCase().includes(query)) ||
       (post.user.name && post.user.name.toLowerCase().includes(query))

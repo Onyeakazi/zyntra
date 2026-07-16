@@ -327,6 +327,51 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
   const [isTranslating, setIsTranslating] = useState(false);
   const [showingTranslation, setShowingTranslation] = useState(false);
 
+  // Auto-translate post content when active language changes
+  useEffect(() => {
+    let active = true;
+
+    const performAutoTranslate = async () => {
+      if (!item.content || item.content.trim().length === 0) return;
+
+      const isUpdate = item.content === "updated their profile picture" || item.content === "updated their cover photo";
+      if (isUpdate) return;
+
+      const activeLang = (i18n.language || 'en').toLowerCase().split('-')[0];
+
+      if (activeLang === 'en') {
+        if (active) {
+          setShowingTranslation(false);
+          setTranslatedText("");
+        }
+        return;
+      }
+
+      setIsTranslating(true);
+      try {
+        const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${activeLang}&dt=t&q=${encodeURIComponent(item.content)}`);
+        const data = await res.json();
+        const result = data[0].map(x => x[0]).join('');
+        if (active) {
+          setTranslatedText(result);
+          setShowingTranslation(true);
+        }
+      } catch (e) {
+        console.log("Auto translation error:", e);
+      } finally {
+        if (active) {
+          setIsTranslating(false);
+        }
+      }
+    };
+
+    performAutoTranslate();
+
+    return () => {
+      active = false;
+    };
+  }, [i18n.language, item.content, item.id]);
+
   const handleTranslate = async () => {
     if (showingTranslation) {
       setShowingTranslation(false);
@@ -1364,14 +1409,14 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
           )}
 
           {/* See Translation Button */}
-          {item.content && item.content.trim().length > 0 && (
+          {item.content && item.content.trim().length > 0 && (i18n.language || 'en').toLowerCase().split('-')[0] !== 'en' && (
             <TouchableOpacity onPress={handleTranslate} style={{ marginTop: 6, marginBottom: 4 }} disabled={isTranslating}>
               <Text style={{ fontFamily: TYPOGRAPHY.semiBold, fontSize: 13, color: COLORS.accent }}>
                 {isTranslating 
-                  ? (t('settings.selectLanguage') === 'Select Language' ? 'Translating...' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Traduciendo...' : 'Traduction...') 
+                  ? 'Translating...' 
                   : showingTranslation 
-                    ? (t('settings.selectLanguage') === 'Select Language' ? 'See Original' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Ver original' : 'Voir l\'original') 
-                    : (t('settings.selectLanguage') === 'Select Language' ? 'See Translation' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Ver traducción' : 'Voir la traduction')}
+                    ? 'See Original' 
+                    : 'See Translation'}
               </Text>
             </TouchableOpacity>
           )}

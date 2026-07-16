@@ -1,4 +1,4 @@
-import { Image, Pressable, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { Image, Pressable, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native'
 import createResponsiveStyleSheet from '../../utils/responsiveStyleSheet'
 import { router } from 'expo-router'
 import Constants, { ExecutionEnvironment } from 'expo-constants';
@@ -92,6 +92,44 @@ const Login = () => {
         password: "",
         confirmPassword: "",
     });
+
+    const handleShowTerms = () => {
+        const lang = t('settings.selectLanguage');
+        let title = "Terms & Conditions";
+        let message = "Welcome to Zyntra!\n\n1. Acceptance of Terms: By creating an account, you agree to comply with Zyntra's community standards and terms.\n2. User Content: You are responsible for the content you post.\n3. Account Security: Keep your password safe.\n4. Prohibited Behavior: Harassment, hate speech, and spam are strictly prohibited.";
+        
+        if (lang === 'Seleccionar Idioma') {
+            title = "Términos y Condiciones";
+            message = "¡Bienvenido a Zyntra!\n\n1. Aceptación de los términos: Al crear una cuenta, acepta cumplir con las normas y términos de la comunidad de Zyntra.\n2. Contenido del usuario: Usted es responsable del contenido que publica.\n3. Seguridad de la cuenta: Mantenga su contraseña segura.\n4. Comportamiento prohibido: El acoso, el discurso de odio y el spam están estrictamente prohibidos.";
+        } else if (lang === 'Choisir la langue') {
+            title = "Conditions Générales";
+            message = "Bienvenue sur Zyntra !\n\n1. Acceptation des conditions: En créant un compte, vous acceptez de respecter les normes et conditions de la communauté Zyntra.\n2. Contenu de l'utilisateur: Vous êtes responsable du contenu que vous publiez.\n3. Sécurité du compte: Gardez votre mot de passe en sécurité.\n4. Comportements interdits: Le harcèlement, les discours de haine et le spam sont strictement interdits.";
+        } else if (lang === 'Definir idioma') {
+            title = "Termos & Condições";
+            message = "Bem-vindo ao Zyntra!\n\n1. Aceitação dos Termos: Ao criar uma conta, você concorda em cumprir os padrões e termos da comunidade do Zyntra.\n2. Conteúdo do Usuário: Você é responsável pelo conteúdo que publica.\n3. Segurança da Conta: Mantenha sua senha segura.\n4. Comportamento Proibido: Assédio, discurso de ódio e spam são estritamente proibidos.";
+        }
+        
+        Alert.alert(title, message);
+    };
+
+    const handleShowPrivacy = () => {
+        const lang = t('settings.selectLanguage');
+        let title = "Privacy Policy";
+        let message = "Zyntra values your privacy:\n\n1. Information Collection: We collect information you provide (name, email, profile updates).\n2. Information Use: We use your data to power professional networking connections, stories, and feed posts.\n3. Security: We implement standard security procedures to protect your data.";
+        
+        if (lang === 'Seleccionar Idioma') {
+            title = "Política de Privacidad";
+            message = "Zyntra valora su privacidad:\n\n1. Recopilación de información: Recopilamos la información que proporciona (nombre, correo electrónico, actualizaciones de perfil).\n2. Uso de la información: Usamos sus datos para impulsar las conexiones profesionales, historias y publicaciones.\n3. Seguridad: Implementamos procedimientos de seguridad estándar para proteger sus datos.";
+        } else if (lang === 'Choisir la langue') {
+            title = "Politique de Confidentialité";
+            message = "Zyntra respecte votre vie privée :\n\n1. Collecte d'informations: Nous collectons les informations que vous fournissez (nom, email, mises à jour de profil).\n2. Utilisation des informations: Nous utilisons vos données pour alimenter les connexions professionnelles, les stories et les publications.\n3. Sécurité: Nous mettons en œuvre des procédures de sécurité standard pour protéger vos données.";
+        } else if (lang === 'Definir idioma') {
+            title = "Política de Privacidade";
+            message = "O Zyntra valoriza sua privacidade:\n\n1. Coleta de Informações: Coletamos informações que você fornece (nome, e-mail, atualizações de perfil).\n2. Uso de Informações: Usamos seus dados para alimentar as conexões de rede profissional, histórias e publicações no feed.\n3. Segurança: Implementamos procedimentos de segurança padrão para proteger seus dados.";
+        }
+        
+        Alert.alert(title, message);
+    };
 
     // Handle Google Sign-In
     const handleGoogleSignIn = async () => {
@@ -467,7 +505,7 @@ const Login = () => {
                     <View style={styles.inputField}>
 
                         <FloatingInput
-                            placeholder="Full Name"
+                            placeholder={t('settings.selectLanguage') === 'Select Language' ? 'Full Name' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Nombre completo' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Nom complet' : 'Nome completo'}
                             value={signupData.fullName}
                             onChangeText={(text) => setSignupData({...signupData, fullName: text})}
                             onFocus={() => setIsFocused(true)}
@@ -477,7 +515,7 @@ const Login = () => {
                         />
 
                         <FloatingInput
-                            placeholder="Email"
+                            placeholder={t('settings.selectLanguage') === 'Select Language' ? 'Email' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Correo electrónico' : t('settings.selectLanguage') === 'Choisir la langue' ? 'E-mail' : 'E-mail'}
                             value={signupData.email}
                             onChangeText={(text) => setSignupData({...signupData, email: text})}
                             onFocus={() => setIsFocused(true)}
@@ -486,7 +524,7 @@ const Login = () => {
                         />
 
                         <FloatingInput
-                            placeholder="Password"
+                            placeholder={t('settings.selectLanguage') === 'Select Language' ? 'Password' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Contraseña' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Mot de passe' : 'Senha'}
                             value={signupData.password}
                             onChangeText={(text) => setSignupData({...signupData, password: text})}
                             onFocus={() => setIsFocused(true)}
@@ -498,7 +536,7 @@ const Login = () => {
                         />
 
                         <FloatingInput
-                            placeholder="Confirm Password"
+                            placeholder={t('settings.selectLanguage') === 'Select Language' ? 'Confirm Password' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Confirmar contraseña' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Confirmer le mot de passe' : 'Confirmar senha'}
                             value={signupData.confirmPassword}
                             onChangeText={(text) => setSignupData({...signupData, confirmPassword: text})}
                             onFocus={() => setIsFocused(true)}
@@ -516,7 +554,7 @@ const Login = () => {
 
                     <View style={{marginTop: 40}}>
                         <Button 
-                            text={"Join Now"}
+                            text={t('settings.selectLanguage') === 'Select Language' ? 'Join Now' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Registrarse' : t('settings.selectLanguage') === 'Choisir la langue' ? 'S\'inscrire' : 'Cadastrar-se'}
                             action={handleSignup}
                             bgColor={"#438def"}
                             textColor={"#FFFFFF"}
@@ -527,7 +565,9 @@ const Login = () => {
 
                     <View style={{flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 10, marginTop: 15}}>
                         <View style={{flex: 1, height: 1, backgroundColor: "#C4C4C4"}}/>
-                        <Text style={{textAlign: "center", fontFamily: TYPOGRAHPY.regular, fontSize: 16, color: "#949494"}}>Or Sign up with</Text>
+                        <Text style={{textAlign: "center", fontFamily: TYPOGRAHPY.regular, fontSize: 16, color: "#949494"}}>
+                            {t('settings.selectLanguage') === 'Select Language' ? 'Or Sign up with' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'O registrarse con' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Ou s\'inscrire avec' : 'Ou registrar-se com'}
+                        </Text>
                         <View style={{flex: 1, height: 1, backgroundColor: "#C4C4C4"}}/>
                     </View>
 
@@ -544,9 +584,28 @@ const Login = () => {
 
                     <View style={{flexDirection: "row", justifyContent: "center", marginTop: 30}}>
                         <Text style={{fontFamily: TYPOGRAHPY.medium, fontSize: 16, color: "#656F78"}}>
-                            Already have an Account{" "}
+                            {t('settings.selectLanguage') === 'Select Language' ? 'Already have an Account ' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? '¿Ya tienes una cuenta? ' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Vous avez déjà un compte ? ' : 'Já tem uma conta? '}
                             <Text onPress={() => setActive("signin")} style={{ color: "#5398F1" }}>
-                                Sign in
+                                {t('settings.selectLanguage') === 'Select Language' ? 'Sign in' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Iniciar sesión' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Se connecter' : 'Entrar'}
+                            </Text>
+                        </Text>
+                    </View>
+
+                    <View style={{ marginTop: 25, alignItems: 'center', paddingHorizontal: 20, marginBottom: 20 }}>
+                        <Text style={{ fontFamily: TYPOGRAHPY.regular, fontSize: 12, color: '#9CA3AF', textAlign: 'center', lineHeight: 18 }}>
+                            {t('settings.selectLanguage') === 'Select Language' ? 'By joining, you agree to our ' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Al unirte, aceptas nuestros ' : t('settings.selectLanguage') === 'Choisir la langue' ? 'En vous inscrivant, vous acceptez nos ' : 'Ao se registrar, você concorda com nossos '}
+                            <Text 
+                                onPress={handleShowTerms}
+                                style={{ color: '#438def', fontFamily: TYPOGRAHPY.semiBold }}
+                            >
+                                {t('settings.selectLanguage') === 'Select Language' ? 'Terms & Conditions' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Términos y condiciones' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Conditions d\'utilisation' : 'Termos e Condições'}
+                            </Text>
+                            {t('settings.selectLanguage') === 'Select Language' ? ' and ' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? ' y la ' : t('settings.selectLanguage') === 'Choisir la langue' ? ' et notre ' : ' e '}
+                            <Text 
+                                onPress={handleShowPrivacy}
+                                style={{ color: '#438def', fontFamily: TYPOGRAHPY.semiBold }}
+                            >
+                                {t('settings.selectLanguage') === 'Select Language' ? 'Privacy Policy' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Política de privacidad' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Politique de confidentialité' : 'Política de Privacidade'}
                             </Text>
                         </Text>
                     </View>
