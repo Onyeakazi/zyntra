@@ -317,7 +317,7 @@ const ZoomableImage = ({ source, style, resizeMode = "contain" }) => {
   );
 };
 
-const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onProfileImageUpdated, activePostId, postItems, initialPhotoViewerIndex = 0 }) => {
+const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onProfileImageUpdated, activePostId, postItems, initialPhotoViewerIndex = 0, onShareToStory }) => {
   const { t, i18n } = useTranslation();
   const [activeItem, setActiveItem] = useState(item);
   const targetPostId = activeItem.id;
@@ -1723,6 +1723,24 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
             <Text style={styles.sheetTitle}>Share Post</Text>
 
             <View style={styles.sheetOptionsList}>
+              <TouchableOpacity
+                style={styles.sheetOptionRow}
+                onPress={() => {
+                  setShowShareSheet(false);
+                  if (onShareToStory) {
+                    onShareToStory(item);
+                  }
+                }}
+              >
+                <View style={[styles.sheetIconCircle, { backgroundColor: '#E0F2FE' }]}>
+                  <Ionicons name="camera-outline" size={22} color="#0288D1" />
+                </View>
+                <View style={styles.sheetOptionTextContainer}>
+                  <Text style={styles.sheetOptionTitle}>Share to Story</Text>
+                  <Text style={styles.sheetOptionSub}>Add this post card to your 24h story</Text>
+                </View>
+              </TouchableOpacity>
+
               <TouchableOpacity
                 style={styles.sheetOptionRow}
                 onPress={() => {

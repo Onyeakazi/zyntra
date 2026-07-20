@@ -25,6 +25,7 @@ import Back from '../assets/vectors/back.svg';
 import TYPOGRAPHY from '../constants/typography';
 import COLORS from '../constants/colors';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function Comments() {
   const { t, i18n } = useTranslation();
@@ -839,7 +840,7 @@ export default function Comments() {
                 !loading && (
                   <View style={styles.emptyContainer}>
                     <View style={styles.emptyIconContainer}>
-                      <Message width={30} height={30} color="#888" />
+                      <Ionicons name="chatbubble-outline" size={28} color="#888" />
                     </View>
                     <Text style={styles.emptyText}>{t('settings.selectLanguage') === 'Select Language' ? 'No comments yet' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Sin comentarios aún' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Pas encore de commentaires' : 'Sem comentários ainda'}</Text>
                     <Text style={styles.emptySubText}>{t('settings.selectLanguage') === 'Select Language' ? 'Be the first to share your thoughts!' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? '¡Sé el primero en compartir tus pensamientos!' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Soyez le premier à partager vos pensées!' : 'Seja o primeiro a compartilhar seus pensamentos!'}</Text>

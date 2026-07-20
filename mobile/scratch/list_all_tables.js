@@ -17,24 +17,34 @@ if (fs.existsSync(envPath)) {
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 async function run() {
-  console.log("Checking users table...");
-  const { data: users, error: usersErr } = await supabase.from('users').select('*').limit(1);
-  if (usersErr) {
-    console.error("Error reading users:", usersErr);
-  } else {
-    console.log("Users sample:", JSON.stringify(users, null, 2));
-  }
-
-  console.log("Checking connections table...");
-  const { data: conn, error: connErr } = await supabase.from('connections').select('*').limit(1);
-  if (connErr) {
-    console.error("Error reading connections:", connErr);
-  } else {
-    console.log("Connections sample:", JSON.stringify(conn, null, 2));
+  console.log("Checking for database tables...");
+  
+  const tablesToCheck = [
+    'users',
+    'profiles',
+    'avatars',
+    'banners',
+    'cover_photos',
+    'profile_photos',
+    'profile_pictures',
+    'user_avatars',
+    'user_banners'
+  ];
+  
+  for (const table of tablesToCheck) {
+    const { error } = await supabase.from(table).select("*").limit(1);
+    if (error) {
+      if (error.code === '42P01') {
+        console.log(`❌ Table '${table}' does not exist.`);
+      } else {
+        console.log(`✅ Table '${table}' exists but returned error: ${error.message} (Code: ${error.code})`);
+      }
+    } else {
+      console.log(`✅ Table '${table}' exists!`);
+    }
   }
 }
 

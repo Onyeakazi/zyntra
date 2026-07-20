@@ -8,6 +8,8 @@ import {
   Inter_700Bold,
   useFonts,
 } from '@expo-google-fonts/inter';
+import Ionicons from '@expo/vector-icons/Ionicons';
+
 import { useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -34,6 +36,7 @@ export default function RootLayout() {
     InterMedium: Inter_500Medium,
     InterSemiBold: Inter_600SemiBold,
     InterBold: Inter_700Bold,
+    ...Ionicons.font,
   });
 
   const [isReady, setIsReady] = useState(false);

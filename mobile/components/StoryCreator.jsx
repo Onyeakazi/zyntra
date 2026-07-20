@@ -32,7 +32,8 @@ const BACKGROUND_COLORS = [
 const StoryCreator = ({
   visible,
   mediaUri,
-  mediaType = 'image', // 'image', 'video', 'text'
+  mediaType = 'image', // 'image', 'video', 'text', 'shared_post'
+  sharedPost = null,
   onCancel,
   onShare,
   sharing = false
@@ -59,11 +60,84 @@ const StoryCreator = ({
       mediaUri,
       mediaType,
       caption: caption.trim(),
-      backgroundColor: mediaType === 'text' ? selectedBgColor : null
+      backgroundColor: (mediaType === 'text' || mediaType === 'shared_post') ? selectedBgColor : null,
+      sharedPost
     })
   }
 
   const renderContent = () => {
+    if (mediaType === 'shared_post' && sharedPost) {
+      const authorName = sharedPost.user?.name || sharedPost.user?.full_name || "User"
+      const authorUsername = sharedPost.user?.username ? `@${sharedPost.user.username}` : ""
+      const avatarUri = sharedPost.user?.profilePic?.uri || sharedPost.user?.avatar_url
+      const mediaUrl = sharedPost.image?.uri || (typeof sharedPost.image === 'string' ? sharedPost.image : null)
+
+      return (
+        <View style={[styles.textStoryCanvas, { backgroundColor: selectedBgColor }]}>
+          <ScrollView
+            contentContainerStyle={styles.sharedPostCanvasScroll}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Facebook-style Reshare Card */}
+            <View style={styles.sharedPostCard}>
+              {/* Header Badge */}
+              <View style={styles.sharedPostCardHeader}>
+                <View style={styles.sharedPostAuthorRow}>
+                  <Image
+                    source={
+                      avatarUri && typeof avatarUri === 'string' && avatarUri.trim() !== ""
+                        ? { uri: avatarUri }
+                        : require('../assets/images/default.png')
+                    }
+                    style={styles.sharedPostAvatar}
+                  />
+                  <View style={styles.sharedPostAuthorInfo}>
+                    <Text style={styles.sharedPostAuthorName} numberOfLines={1}>
+                      {authorName}
+                    </Text>
+                    {authorUsername ? (
+                      <Text style={styles.sharedPostAuthorUsername} numberOfLines={1}>
+                        {authorUsername}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+                <View style={styles.sharedPostBadge}>
+                  <Text style={styles.sharedPostBadgeText}>Zyntra Feed</Text>
+                </View>
+              </View>
+
+              {/* Text Snippet */}
+              {sharedPost.content ? (
+                <Text style={styles.sharedPostContentText} numberOfLines={5}>
+                  {sharedPost.content}
+                </Text>
+              ) : null}
+
+              {/* Attached Media Thumbnail (Image or Video) */}
+              {mediaUrl ? (
+                <Image
+                  source={{ uri: mediaUrl }}
+                  style={styles.sharedPostMediaImage}
+                  resizeMode="cover"
+                />
+              ) : null}
+            </View>
+
+            {/* Optional Personal Caption below card */}
+            <TextInput
+              placeholder={t('settings.selectLanguage') === 'Select Language' ? 'Add your thoughts...' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Añade tus pensamientos...' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Ajoutez vos pensées...' : 'Adicione seus pensamentos...'}
+              placeholderTextColor="rgba(255,255,255,0.7)"
+              value={caption}
+              onChangeText={setCaption}
+              style={styles.sharedPostCaptionInput}
+              maxLength={150}
+            />
+          </ScrollView>
+        </View>
+      )
+    }
+
     if (mediaType === 'text') {
       return (
         <View style={[styles.textStoryCanvas, { backgroundColor: selectedBgColor }]}>
@@ -139,7 +213,7 @@ const StoryCreator = ({
             <Ionicons name="close" size={28} color="#fff" />
           </Pressable>
           <Text style={styles.headerTitle}>
-            {mediaType === 'text' ? t('feed.textStory') : mediaType === 'video' ? t('feed.videoStory') : t('feed.photoStory')}
+            {mediaType === 'shared_post' ? (t('settings.selectLanguage') === 'Select Language' ? 'Share Post to Story' : 'Story') : mediaType === 'text' ? t('feed.textStory') : mediaType === 'video' ? t('feed.videoStory') : t('feed.photoStory')}
           </Text>
           <Pressable
             style={[styles.shareBtn, sharing && styles.shareBtnDisabled]}
@@ -159,8 +233,8 @@ const StoryCreator = ({
           {renderContent()}
         </View>
 
-        {/* BOTTOM COLOR PALETTE (For text stories) */}
-        {mediaType === 'text' && !sharing && (
+        {/* BOTTOM COLOR PALETTE (For text and shared post stories) */}
+        {(mediaType === 'text' || mediaType === 'shared_post') && !sharing && (
           <View style={styles.paletteContainer}>
             <Text style={styles.paletteLabel}>{t('settings.selectLanguage') === 'Select Language' ? 'Select Background Color' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Seleccionar color de fondo' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Choisir la couleur de fond' : 'Selecionar cor de fundo'}</Text>
             <ScrollView
@@ -347,5 +421,98 @@ const styles = createResponsiveStyleSheet({
   colorBubbleSelected: {
     borderWidth: 3,
     borderColor: '#fff',
+  },
+
+  // Shared Post Reshare Card styles
+  sharedPostCanvasScroll: {
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    width: '100%',
+  },
+  sharedPostCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  sharedPostCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  sharedPostAuthorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  sharedPostAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  sharedPostAuthorInfo: {
+    flex: 1,
+  },
+  sharedPostAuthorName: {
+    fontSize: 14,
+    fontFamily: TYPOGRAPHY.semiBold,
+    color: '#1F2937',
+  },
+  sharedPostAuthorUsername: {
+    fontSize: 12,
+    fontFamily: TYPOGRAPHY.regular,
+    color: '#6B7280',
+  },
+  sharedPostBadge: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  sharedPostBadgeText: {
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.semiBold,
+    color: COLORS.primary,
+  },
+  sharedPostContentText: {
+    fontSize: 14,
+    fontFamily: TYPOGRAPHY.regular,
+    color: '#374151',
+    lineHeight: 20,
+    marginBottom: 10,
+  },
+  sharedPostMediaImage: {
+    width: '100%',
+    height: 160,
+    borderRadius: 12,
+    marginTop: 4,
+  },
+  sharedPostCaptionInput: {
+    width: '100%',
+    marginTop: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontFamily: TYPOGRAPHY.medium,
+    textAlign: 'center',
   },
 })

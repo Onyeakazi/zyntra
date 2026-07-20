@@ -24,6 +24,7 @@ import { formatPostTime } from '../utils/timeFormat'
 import { supabase } from '../lib/supabase'
 import { auth } from '../config/firebase'
 import { Video, ResizeMode } from 'expo-av'
+import { useRouter } from 'expo-router'
 
 const StoryViewer = ({
   visible,
@@ -34,6 +35,7 @@ const StoryViewer = ({
   onStoryDeleted
 }) => {
   const { t } = useTranslation()
+  const router = useRouter()
   const [currentGroupIndex, setCurrentGroupIndex] = useState(initialGroupIndex)
   const [currentStoryIndex, setCurrentStoryIndex] = useState(initialStoryIndex)
   
@@ -42,6 +44,9 @@ const StoryViewer = ({
   const [isInputFocused, setIsInputFocused] = useState(false)
   const [isViewersModalOpen, setIsViewersModalOpen] = useState(false)
   const [isOptionsSheetOpen, setIsOptionsSheetOpen] = useState(false)
+  const [isViewPostModalOpen, setIsViewPostModalOpen] = useState(false)
+  const [targetPostAuthor, setTargetPostAuthor] = useState('')
+  const [targetPostId, setTargetPostId] = useState(null)
 
   // Interactive states
   const [viewers, setViewers] = useState([])
@@ -52,7 +57,7 @@ const StoryViewer = ({
   const animRef = useRef(null)
   const lastStoryIdRef = useRef(null)
 
-  const isPlaybackPaused = isHolding || isInputFocused || isViewersModalOpen || isOptionsSheetOpen
+  const isPlaybackPaused = isHolding || isInputFocused || isViewersModalOpen || isOptionsSheetOpen || isViewPostModalOpen
 
   // Track progress value safely
   useEffect(() => {
@@ -404,7 +409,123 @@ const StoryViewer = ({
         {/* STORY DISPLAY */}
         {/* STORY DISPLAY CANVAS */}
         <View style={styles.mediaWrapper}>
-          {activeStory.media_type === 'text' ? (
+          {activeStory.media_type === 'shared_post' ? (
+            (() => {
+              let payload = null;
+              let directUrl = null;
+              if (activeStory.media_url && typeof activeStory.media_url === 'string') {
+                const trimmed = activeStory.media_url.trim();
+                if (trimmed.startsWith('{')) {
+                  try {
+                    payload = JSON.parse(trimmed);
+                  } catch (e) {}
+                } else if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+                  directUrl = trimmed;
+                }
+              }
+
+              const authorName = payload?.author_name || activeStory.user?.full_name || "User";
+              const authorUsername = payload?.author_username ? `@${payload.author_username}` : (activeStory.user?.username ? `@${activeStory.user.username}` : "");
+              const avatarUri = payload?.author_avatar || activeStory.user?.avatar_url;
+              let mediaUrl = payload?.media_url || directUrl;
+              if (mediaUrl && typeof mediaUrl === 'string' && mediaUrl.includes(',')) {
+                mediaUrl = mediaUrl.split(',')[0].trim();
+              }
+              const postContent = payload?.content || activeStory.caption || "";
+
+              return (
+                <View style={[styles.textStoryCanvas, { backgroundColor: activeStory.background_color || '#007AFF' }]}>
+                  {/* Background Blur Image if shared post has media */}
+                  {mediaUrl ? (
+                    <>
+                      <Image
+                        source={{ uri: mediaUrl }}
+                        style={StyleSheet.absoluteFillObject}
+                        resizeMode="cover"
+                        blurRadius={15}
+                      />
+                      <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.45)' }} />
+                    </>
+                  ) : null}
+                  <Pressable
+                    style={styles.sharedPostCardViewer}
+                    onPress={() => {
+                      setIsHolding(false);
+                      setTargetPostAuthor(authorName);
+                      setTargetPostId(payload?.post_id || null);
+                      setIsViewPostModalOpen(true);
+                    }}
+                  >
+                    <View style={styles.sharedPostCardHeader}>
+                      <View style={styles.sharedPostAuthorRow}>
+                        <Image
+                          source={
+                            avatarUri && typeof avatarUri === 'string' && avatarUri.trim() !== ""
+                              ? { uri: avatarUri }
+                              : require('../assets/images/default.png')
+                          }
+                          style={styles.sharedPostAvatar}
+                        />
+                        <View style={styles.sharedPostAuthorInfo}>
+                          <Text style={styles.sharedPostAuthorName} numberOfLines={1}>
+                            {authorName}
+                          </Text>
+                          {authorUsername ? (
+                            <Text style={styles.sharedPostAuthorUsername} numberOfLines={1}>
+                              {authorUsername}
+                            </Text>
+                          ) : null}
+                        </View>
+                      </View>
+                      <View style={styles.sharedPostBadge}>
+                        <Text style={styles.sharedPostBadgeText}>Zyntra Feed</Text>
+                      </View>
+                    </View>
+
+                    {postContent ? (
+                      <Text style={styles.sharedPostContentText} numberOfLines={5}>
+                        {postContent}
+                      </Text>
+                    ) : null}
+
+                    {mediaUrl ? (
+                      <Image
+                        source={{ uri: mediaUrl }}
+                        style={styles.sharedPostMediaImage}
+                        resizeMode="cover"
+                      />
+                    ) : null}
+
+                    {/* Interactive View Post Pill */}
+                    <Pressable
+                      style={styles.viewPostActionBtn}
+                      onPress={() => {
+                        setIsHolding(false);
+                        setIsViewPostModalOpen(false);
+                        onClose();
+                        const pid = payload?.post_id || targetPostId;
+                        if (pid) {
+                          router.push({ pathname: '/comments', params: { postId: pid } });
+                        } else {
+                          router.push('/(tabs)');
+                        }
+                      }}
+                    >
+                      <Ionicons name="arrow-forward-circle" size={18} color={COLORS.primary} />
+                      <Text style={styles.viewPostActionText}>View Post</Text>
+                    </Pressable>
+                  </Pressable>
+
+                  {/* Personal Caption below card */}
+                  {activeStory.caption ? (
+                    <Text style={styles.sharedPostStoryCaptionText}>
+                      {activeStory.caption}
+                    </Text>
+                  ) : null}
+                </View>
+              );
+            })()
+          ) : activeStory.media_type === 'text' ? (
             // Text Story Layout
             <View style={[styles.textStoryCanvas, { backgroundColor: activeStory.background_color || COLORS.accent }]}>
               <Text style={styles.textStoryContent}>{activeStory.caption}</Text>
@@ -695,6 +816,54 @@ const StoryViewer = ({
           </View>
         )}
 
+        {/* VIEW POST POP-UP MODAL (Facebook Style!) */}
+        {isViewPostModalOpen && (
+          <Pressable
+            style={styles.viewPostModalOverlay}
+            onPress={() => setIsViewPostModalOpen(false)}
+          >
+            <Pressable
+              style={styles.viewPostModalContent}
+              onPress={(e) => e.stopPropagation()}
+            >
+              <View style={styles.viewPostModalHeader}>
+                <View style={styles.viewPostModalIconCircle}>
+                  <Ionicons name="newspaper" size={24} color="#007AFF" />
+                </View>
+                <Text style={styles.viewPostModalTitle}>Shared Post</Text>
+                <Text style={styles.viewPostModalSubTitle}>
+                  Post by {targetPostAuthor || 'User'} on Zyntra Feed
+                </Text>
+              </View>
+
+              <View style={styles.viewPostModalActions}>
+                <Pressable
+                  style={styles.viewPostPrimaryBtn}
+                  onPress={() => {
+                    const pid = targetPostId
+                    setIsViewPostModalOpen(false)
+                    onClose()
+                    if (pid) {
+                      router.push({ pathname: '/comments', params: { postId: pid } })
+                    } else {
+                      router.push('/(tabs)')
+                    }
+                  }}
+                >
+                  <Ionicons name="arrow-forward-circle" size={20} color="#fff" style={{ marginRight: 6 }} />
+                  <Text style={styles.viewPostPrimaryBtnText}>View Post</Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.viewPostCancelBtn}
+                  onPress={() => setIsViewPostModalOpen(false)}
+                >
+                  <Text style={styles.viewPostCancelBtnText}>Cancel</Text>
+                </Pressable>
+              </View>
+            </Pressable>
+          </Pressable>
+        )}
 
       </SafeAreaView>
     </Modal>
@@ -1084,5 +1253,181 @@ const styles = createResponsiveStyleSheet({
     fontSize: 14,
     fontFamily: TYPOGRAPHY.medium,
     fontStyle: 'italic',
+  },
+
+  // Shared Post Reshare Story Viewer styles
+  sharedPostCardViewer: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 30,
+    zIndex: 30,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  sharedPostCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  sharedPostAuthorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  sharedPostAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  sharedPostAuthorInfo: {
+    flex: 1,
+  },
+  sharedPostAuthorName: {
+    fontSize: 14,
+    fontFamily: TYPOGRAPHY.semiBold,
+    color: '#1F2937',
+  },
+  sharedPostAuthorUsername: {
+    fontSize: 12,
+    fontFamily: TYPOGRAPHY.regular,
+    color: '#6B7280',
+  },
+  sharedPostBadge: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  sharedPostBadgeText: {
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.semiBold,
+    color: COLORS.primary,
+  },
+  sharedPostContentText: {
+    fontSize: 14,
+    fontFamily: TYPOGRAPHY.regular,
+    color: '#374151',
+    lineHeight: 20,
+    marginBottom: 10,
+  },
+  sharedPostMediaImage: {
+    width: '100%',
+    height: 160,
+    borderRadius: 12,
+    marginTop: 4,
+    marginBottom: 10,
+  },
+  viewPostActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#F3F4F6',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    marginTop: 6,
+  },
+  viewPostActionText: {
+    fontSize: 13,
+    fontFamily: TYPOGRAPHY.semiBold,
+    color: COLORS.primary,
+  },
+  sharedPostStoryCaptionText: {
+    marginTop: 16,
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontFamily: TYPOGRAPHY.semiBold,
+    textAlign: 'center',
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  viewPostModalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    zIndex: 999,
+  },
+  viewPostModalContent: {
+    width: '100%',
+    backgroundColor: '#1C1C1E',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  viewPostModalHeader: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  viewPostModalIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(0, 122, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  viewPostModalTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontFamily: TYPOGRAPHY.bold,
+    marginBottom: 4,
+  },
+  viewPostModalSubTitle: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    fontFamily: TYPOGRAPHY.regular,
+    textAlign: 'center',
+  },
+  viewPostModalActions: {
+    width: '100%',
+    gap: 10,
+  },
+  viewPostPrimaryBtn: {
+    width: '100%',
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#007AFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewPostPrimaryBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontFamily: TYPOGRAPHY.semiBold,
+  },
+  viewPostCancelBtn: {
+    width: '100%',
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewPostCancelBtnText: {
+    color: '#E5E7EB',
+    fontSize: 14,
+    fontFamily: TYPOGRAPHY.medium,
   },
 })

@@ -50,9 +50,17 @@ export default function Index() {
   const [isStoryCreatorVisible, setIsStoryCreatorVisible] = useState(false);
   const [isStoryViewerVisible, setIsStoryViewerVisible] = useState(false);
   const [selectedStoryMedia, setSelectedStoryMedia] = useState(null);
-  const [selectedStoryMediaType, setSelectedStoryMediaType] = useState("image"); // "image", "video", "text"
+  const [selectedStoryMediaType, setSelectedStoryMediaType] = useState("image"); // "image", "video", "text", "shared_post"
+  const [selectedSharedPost, setSelectedSharedPost] = useState(null);
   const [isStorySharing, setIsStorySharing] = useState(false);
   const [activeStoryGroupIndex, setActiveStoryGroupIndex] = useState(0);
+
+  const handleOpenShareToStory = (post) => {
+    setSelectedSharedPost(post);
+    setSelectedStoryMedia(null);
+    setSelectedStoryMediaType('shared_post');
+    setIsStoryCreatorVisible(true);
+  };
 
   // Viewability configurations for pausing scroll-past videos
   const [activeViewablePostId, setActiveViewablePostId] = useState(null);
@@ -278,7 +286,7 @@ export default function Index() {
     }
   };
 
-  const handleShareStory = async ({ mediaUri, mediaType, caption, backgroundColor }) => {
+  const handleShareStory = async ({ mediaUri, mediaType, caption, backgroundColor, sharedPost }) => {
     const user = auth.currentUser;
     if (!user) {
       alert("You must be logged in to share a story");
@@ -288,7 +296,57 @@ export default function Index() {
     setIsStorySharing(true);
     try {
       let finalMediaUrl = null;
-      if (mediaType !== 'text' && mediaUri) {
+      if (mediaType === 'shared_post' && sharedPost) {
+        let extractedMediaUrl = null;
+
+        // 1. Direct image property
+        if (sharedPost.image) {
+          if (typeof sharedPost.image === 'string') {
+            extractedMediaUrl = sharedPost.image;
+          } else if (Array.isArray(sharedPost.image) && sharedPost.image.length > 0) {
+            extractedMediaUrl = typeof sharedPost.image[0] === 'string' ? sharedPost.image[0] : sharedPost.image[0]?.uri;
+          } else if (sharedPost.image.uri) {
+            extractedMediaUrl = sharedPost.image.uri;
+          }
+        }
+
+        // 2. Direct media_url property
+        if (!extractedMediaUrl && sharedPost.media_url) {
+          extractedMediaUrl = typeof sharedPost.media_url === 'string' ? sharedPost.media_url : sharedPost.media_url?.uri;
+        }
+
+        // 3. Original post property (reposts)
+        if (!extractedMediaUrl && sharedPost.original_post) {
+          const orig = sharedPost.original_post;
+          if (orig.image) {
+            if (typeof orig.image === 'string') {
+              extractedMediaUrl = orig.image;
+            } else if (Array.isArray(orig.image) && orig.image.length > 0) {
+              extractedMediaUrl = typeof orig.image[0] === 'string' ? orig.image[0] : orig.image[0]?.uri;
+            } else if (orig.image.uri) {
+              extractedMediaUrl = orig.image.uri;
+            }
+          }
+          if (!extractedMediaUrl && orig.media_url) {
+            extractedMediaUrl = typeof orig.media_url === 'string' ? orig.media_url : orig.media_url?.uri;
+          }
+        }
+
+        if (extractedMediaUrl && typeof extractedMediaUrl === 'string' && extractedMediaUrl.includes(',')) {
+          extractedMediaUrl = extractedMediaUrl.split(',')[0].trim();
+        }
+
+        const payload = {
+          post_id: sharedPost.id,
+          author_name: sharedPost.user?.name || sharedPost.user?.full_name || "User",
+          author_username: sharedPost.user?.username || "",
+          author_avatar: sharedPost.user?.profilePic?.uri || sharedPost.user?.avatar_url || null,
+          content: sharedPost.content || (sharedPost.original_post?.content || ""),
+          media_url: extractedMediaUrl,
+          created_at: sharedPost.time || sharedPost.created_at || null,
+        };
+        finalMediaUrl = JSON.stringify(payload);
+      } else if (mediaType !== 'text' && mediaUri) {
         finalMediaUrl = await uploadStoryToCloudinary(mediaUri, mediaType);
       }
 
@@ -307,6 +365,7 @@ export default function Index() {
       if (error) throw error;
 
       setIsStoryCreatorVisible(false);
+      setSelectedSharedPost(null);
       alert("Story shared successfully!");
       fetchActiveStories();
     } catch (err) {
@@ -740,6 +799,15 @@ export default function Index() {
     }
   }, [params?.openSearch]);
 
+  // Listen to postId query parameter updates
+  useEffect(() => {
+    if (params?.postId) {
+      const pid = params.postId;
+      router.setParams({ postId: undefined });
+      router.push({ pathname: '/comments', params: { postId: pid } });
+    }
+  }, [params?.postId]);
+
   const handleRefresh = () => {
     setRefreshing(true);
     fetchFeed(false);
@@ -1046,6 +1114,7 @@ export default function Index() {
           <Feed 
             item={item} 
             activePostId={activeViewablePostId} 
+            onShareToStory={handleOpenShareToStory}
           />
         )}
         onViewableItemsChanged={onViewableItemsChanged}
@@ -1122,7 +1191,11 @@ export default function Index() {
         visible={isStoryCreatorVisible}
         mediaUri={selectedStoryMedia}
         mediaType={selectedStoryMediaType}
-        onCancel={() => setIsStoryCreatorVisible(false)}
+        sharedPost={selectedSharedPost}
+        onCancel={() => {
+          setIsStoryCreatorVisible(false);
+          setSelectedSharedPost(null);
+        }}
         onShare={handleShareStory}
         sharing={isStorySharing}
       />
