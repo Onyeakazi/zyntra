@@ -697,7 +697,9 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
   const [connectionStatus, setConnectionStatus] = useState(null); // null, 'pending_sent', 'pending_received', 'accepted'
   const [connectionLoading, setConnectionLoading] = useState(false);
 
-  const cardWidth = Dimensions.get("window").width - 60;
+  const { width: viewportWidth } = Dimensions.get("window");
+  const cappedViewportWidth = viewportWidth > 600 ? 600 : viewportWidth;
+  const cardWidth = cappedViewportWidth - 60;
   const currentUserId = auth.currentUser?.uid;
   const isAuthor = activeItem.author_id === currentUserId;
 
@@ -1451,6 +1453,7 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
                       useNativeControls={isVideoPlaying}
                       isLooping
                       style={styles.feedVideo}
+                      videoStyle={{ width: '100%', height: '100%' }}
                       onPlaybackStatusUpdate={(status) => {
                         if (status.isPlaying !== isVideoPlaying) {
                           setIsVideoPlaying(status.isPlaying);
@@ -2058,6 +2061,7 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
                                   useNativeControls
                                   isLooping
                                   style={[styles.viewerVideo, { height: viewerImageHeight }]}
+                                  videoStyle={{ width: '100%', height: '100%' }}
                                 />
                               </View>
                             );
@@ -2102,6 +2106,7 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
                         useNativeControls
                         isLooping
                         style={[styles.viewerVideo, { height: viewerImageHeight }]}
+                        videoStyle={{ width: '100%', height: '100%' }}
                       />
                     );
                   }
@@ -2407,8 +2412,8 @@ const styles = createResponsiveStyleSheet({
 
   profile: {
     width: 40,
-    height: 40,
-    borderRadius: 20,
+    aspectRatio: 1,
+    borderRadius: 99,
     resizeMode: "cover",
   },
 
@@ -2674,8 +2679,8 @@ const styles = createResponsiveStyleSheet({
 
   quoteProfile: {
     width: 20,
-    height: 20,
-    borderRadius: 10,
+    aspectRatio: 1,
+    borderRadius: 99,
     resizeMode: "cover",
   },
 
@@ -2891,15 +2896,18 @@ const styles = createResponsiveStyleSheet({
     height: '100%',
   },
   videoContainer: {
-    height: 220,
+    aspectRatio: 16 / 9,
     backgroundColor: '#000000',
     borderRadius: 10,
     marginTop: 10,
     overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   feedVideo: {
     width: '100%',
     height: '100%',
+    alignSelf: 'center',
   },
   viewerVideo: {
     width: '100%',
@@ -2952,8 +2960,8 @@ const styles = createResponsiveStyleSheet({
   },
   viewerAvatar: {
     width: 36,
-    height: 36,
-    borderRadius: 18,
+    aspectRatio: 1,
+    borderRadius: 99,
     borderWidth: 1,
     borderColor: '#E5E7EB',
     resizeMode: "cover",

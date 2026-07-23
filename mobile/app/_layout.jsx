@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import '../lib/i18n';
 import { ActivityIndicator, View, Alert } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -120,9 +121,9 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <SafeAreaProvider>
       {rootContent}
       <CustomAlertModal />
-    </>
+    </SafeAreaProvider>
   );
 }

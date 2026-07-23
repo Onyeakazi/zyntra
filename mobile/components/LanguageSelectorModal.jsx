@@ -8,6 +8,7 @@ import {
   Dimensions,
   Pressable,
   StyleSheet,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -17,10 +18,10 @@ import COLORS from '../constants/colors';
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const LANGUAGES = [
-  { code: 'en', name: 'English', flag: '🇬🇧' },
-  { code: 'es', name: 'Español', flag: '🇪🇸' },
-  { code: 'fr', name: 'Français', flag: '🇫🇷' },
-  { code: 'pt', name: 'Português', flag: '🇵🇹' },
+  { code: 'en', name: 'English', flagUrl: 'https://flagcdn.com/w40/gb.png' },
+  { code: 'es', name: 'Español', flagUrl: 'https://flagcdn.com/w40/es.png' },
+  { code: 'fr', name: 'Français', flagUrl: 'https://flagcdn.com/w40/fr.png' },
+  { code: 'pt', name: 'Português', flagUrl: 'https://flagcdn.com/w40/pt.png' },
 ];
 
 export default function LanguageSelectorModal({ visible, onClose }) {
@@ -135,7 +136,10 @@ export default function LanguageSelectorModal({ visible, onClose }) {
                   onPress={() => selectLanguage(lang.code)}
                 >
                   <View style={styles.langLeft}>
-                    <Text style={styles.flag}>{lang.flag}</Text>
+                    <Image
+                      source={{ uri: lang.flagUrl }}
+                      style={styles.flagImage}
+                    />
                     <Text
                       style={[
                         styles.langName,
@@ -235,8 +239,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 14,
   },
-  flag: {
-    fontSize: 24,
+  flagImage: {
+    width: 28,
+    height: 20,
+    borderRadius: 4,
+    resizeMode: 'cover',
   },
   langName: {
     fontSize: 16,

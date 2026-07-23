@@ -13,8 +13,10 @@ import { onAuthStateChanged } from "firebase/auth";
 import TYPOGRAPHY from "../../constants/typography";
 import Svg, { Path, Circle } from "react-native-svg";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const TabLayout = () => {
+    const insets = useSafeAreaInsets();
     const [avatar, setAvatar] = useState(null);
     const [requestCount, setRequestCount] = useState(0);
     const [isBadgeCleared, setIsBadgeCleared] = useState(false);
@@ -385,9 +387,9 @@ const TabLayout = () => {
 
             tabBarStyle: {
                 backgroundColor: COLORS.bg,
-                height: 85,
-                paddingTop: 18,
-                paddingBottom: 15,
+                height: 60 + insets.bottom,
+                paddingTop: 10,
+                paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
             },
 
         }}

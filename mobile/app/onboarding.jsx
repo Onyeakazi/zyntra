@@ -18,7 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import LanguageSelectorModal from '../components/LanguageSelectorModal';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 const logoWidth = width * 0.4;
 
@@ -48,6 +48,8 @@ export default function Onboarding() {
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         keyExtractor={(item) => item.id}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ height: '100%' }}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { x: scrollX } } }],
           { useNativeDriver: false }
@@ -68,7 +70,7 @@ export default function Onboarding() {
           });
 
           return (
-            <View style={[styles.slide, { width }]}>
+            <View style={[styles.slide, { width, height }]}>
 
               <Animated.View
                 style={{
@@ -77,7 +79,7 @@ export default function Onboarding() {
                 }}
               >
                 {SvgComponent && (
-                  <SvgComponent width={250} height={250} />
+                  <SvgComponent width={width > 400 ? 220 : 180} height={width > 400 ? 220 : 180} />
                 )}
 
                 {index === 0 && (
@@ -176,38 +178,40 @@ const styles = createResponsiveStyleSheet({
   container: {
     flex: 1,
     backgroundColor: COLORS.bg,
+    paddingTop: 0,
   },
 
   slide: {
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
 
   textContainer: {
-    marginTop: 40,
+    marginTop: 20,
     alignItems: 'center',
   },
 
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '700',
     color: COLORS.primary,
   },
 
   text: {
-    fontSize: 15,
+    fontSize: 14,
     color: COLORS.secondary,
     textAlign: 'center',
-    marginTop: 10,
+    marginTop: 8,
     paddingHorizontal: 20,
   },
 
   button: {
-    marginTop: 30,
+    marginTop: 20,
     backgroundColor: COLORS.primary,
-    paddingVertical: 20,
-    paddingHorizontal: 100,
+    paddingVertical: 14,
+    paddingHorizontal: 80,
     borderRadius: 10,
   },
 
@@ -220,8 +224,8 @@ const styles = createResponsiveStyleSheet({
     marginTop: 10,
     textDecorationLine: 'underline',
     borderColor: COLORS.primary,
-    paddingVertical: 20,
-    paddingHorizontal: 100,
+    paddingVertical: 14,
+    paddingHorizontal: 80,
     borderRadius: 10,
   },
 
@@ -232,7 +236,7 @@ const styles = createResponsiveStyleSheet({
 
   pagination: {
     position: 'absolute',
-    bottom: 60,
+    bottom: 30,
     flexDirection: 'row',
     alignSelf: 'center',
   },

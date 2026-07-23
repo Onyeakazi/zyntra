@@ -680,6 +680,7 @@ export default function Index() {
             )
           )
         `)
+        .is("group_id", null)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -815,7 +816,8 @@ export default function Index() {
   };
 
   const { width } = Dimensions.get("screen");
-  const logoWidth = width * 0.4;
+  const cappedWidth = width > 450 ? 450 : width;
+  const logoWidth = cappedWidth * 0.4;
 
   const Header = () => (
     <View>
@@ -823,9 +825,13 @@ export default function Index() {
       <View style={styles.logoContainer}>
         <Image
           source={require("../../assets/images/brand.png")}
-          style={{ width: logoWidth, height: logoWidth * 0.3, resizeMode: "contain" }}
+          style={{ width: logoWidth, height: logoWidth * 0.3 }}
+          resizeMode="contain"
         />
         <View style={styles.logoIcons}>
+          <Pressable onPress={() => router.push("/groups")} style={{ marginRight: 6 }}>
+            <Ionicons name="people-outline" size={26} color="#000" />
+          </Pressable>
           <Pressable onPress={() => setIsSearchActive(true)}>
             <Search width={24} height={24} color="#000" />
           </Pressable>

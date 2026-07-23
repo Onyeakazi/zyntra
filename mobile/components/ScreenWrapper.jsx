@@ -34,6 +34,7 @@ const ScreenWrapper = ({ children }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    width: "100%",
     backgroundColor: COLORS.bg,
   },
 
@@ -59,6 +60,9 @@ const styles = StyleSheet.create({
 
   content: {
     flex: 1,
+    width: "100%",
+    maxWidth: 600,
+    alignSelf: "center",
   },
 });
 

@@ -408,6 +408,7 @@ const Profile = () => {
           )
         `)
         .eq("user_id", targetUserId)
+        .is("group_id", null)
         .order("created_at", { ascending: false });
 
       if (fetchError) {
@@ -773,7 +774,7 @@ const Profile = () => {
                 </Pressable>
 
                 <Pressable
-                  style={styles.profileImageContainer}
+                  style={fixedAvatarStyles.profileImageContainer}
                   onPress={() => handleViewPhoto(userData?.avatar_url, true)}
                 >
                   <Image
@@ -783,7 +784,7 @@ const Profile = () => {
                         ? { uri: userData.avatar_url }
                         : require("../../assets/images/default.png")
                     }
-                    style={styles.profImg}
+                    style={fixedAvatarStyles.profImg}
                   />
                 </Pressable>
               </View>
@@ -1076,7 +1077,7 @@ const Profile = () => {
                   {label: t('settings.editProfile'), icon: "create-outline", action: () => { setIsMenuVisible(false); router.push("/editprofile"); } },
                   { label: t('settings.network'), icon: "people-outline", action: () => { setIsMenuVisible(false); router.push("/connectionsList"); } },
                   { label: t('settings.photosVideos'), icon: "images-outline", action: () => { fetchPhotoHistory(); setCurrentMenuView("folders"); } },
-                  { label: t('settings.group'), icon: "chatbubbles-outline", action: () => Alert.alert(t('settings.selectLanguage') === 'Select Language' ? 'Groups' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Grupos' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Groupes' : 'Grupos', t('settings.selectLanguage') === 'Select Language' ? 'Groups feature coming soon.' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'La función de grupos estará disponible pronto.' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Fonctionnalité de groupes à venir bientôt.' : 'O recurso de grupos estará disponível em breve.') },
+                  { label: t('settings.group'), icon: "chatbubbles-outline", action: () => { setIsMenuVisible(false); router.push("/groups"); } },
                   { label: t('settings.privacy'), icon: "lock-closed-outline", action: () => { setIsMenuVisible(false); router.push("/privacy"); } },
                   { label: t('settings.searchProfile'), icon: "search-outline", action: () => { setIsMenuVisible(false); router.push({ pathname: "/(tabs)/", params: { openSearch: "true" } }); } },
                   { label: t('settings.settingsTitle'), icon: "settings-outline", action: () => { setIsMenuVisible(false); router.push("/settings"); } },
@@ -1501,12 +1502,12 @@ const styles = createResponsiveStyleSheet({
 
   header: {
     position: "relative",
-    marginBottom: verticalScale(60),
+    marginBottom: 60,
   },
 
   banner: {
     width: "100%",
-    height: verticalScale(160),
+    height: 160,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     overflow: "hidden",
@@ -1518,22 +1519,7 @@ const styles = createResponsiveStyleSheet({
     resizeMode: "cover",
   },
 
-  profileImageContainer: {
-    position: "absolute",
-    bottom: -scale(50),
-    left: "50%",
-    transform: [{ translateX: -scale(50) }],
-    zIndex: 10,
-  },
 
-  profImg: {
-    width: scale(100),
-    height: scale(100),
-    borderRadius: scale(50),
-    borderWidth: 4,
-    borderColor: "#fff",
-    resizeMode: "cover",
-  },
   menuDrawerOverlay: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -1564,8 +1550,8 @@ const styles = createResponsiveStyleSheet({
   },
   menuUserAvatar: {
     width: 80,
-    height: 80,
-    borderRadius: 40,
+    aspectRatio: 1,
+    borderRadius: 99,
     borderWidth: 2,
     borderColor: '#E5E7EB',
     marginBottom: 10,
@@ -1792,5 +1778,23 @@ const styles = createResponsiveStyleSheet({
     fontSize: 14,
     fontFamily: TYPOGRAPHY.medium,
     color: '#9CA3AF',
+  },
+});
+
+const fixedAvatarStyles = StyleSheet.create({
+  profileImageContainer: {
+    position: "absolute",
+    bottom: -scale(50),
+    left: "50%",
+    transform: [{ translateX: -scale(50) }],
+    zIndex: 10,
+  },
+  profImg: {
+    width: scale(100),
+    height: scale(100),
+    borderRadius: scale(50),
+    borderWidth: 4,
+    borderColor: "#fff",
+    resizeMode: "cover",
   },
 });
