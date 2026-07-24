@@ -16,6 +16,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { auth } from '../config/firebase';
+import { sendPushNotificationTrigger } from '../utils/pushNotifications';
 import ScreenWrapper from '../components/ScreenWrapper';
 import Preloader from '../components/Preloader';
 import Feed from '../components/Feed';
@@ -485,6 +486,32 @@ export default function Comments() {
         .insert(insertData);
 
       if (error) throw error;
+
+      // Trigger push notification for comment/reply
+      const textToSubmit = commentText.trim();
+      if (replyingTo) {
+        // Send a reply notification to comment owner
+        if (replyingTo.user_id && replyingTo.user_id !== currentUserId) {
+          sendPushNotificationTrigger(
+            replyingTo.user_id,
+            currentUserId,
+            textToSubmit,
+            "",
+            { type: 'reply', postId: postId }
+          );
+        }
+      } else {
+        // Send a comment notification to post owner
+        if (post && post.author_id && post.author_id !== currentUserId) {
+          sendPushNotificationTrigger(
+            post.author_id,
+            currentUserId,
+            textToSubmit,
+            "",
+            { type: 'comment', postId: postId }
+          );
+        }
+      }
 
       setCommentText("");
       setReplyingTo(null);

@@ -16,6 +16,7 @@ import { renderTextWithMentions } from '../utils/mentions';
 import TYPOGRAPHY from '../constants/typography';
 import COLORS from '../constants/colors';
 import { acceptConnectionInDB } from '../utils/connectionHelpers';
+import { sendPushNotificationTrigger } from '../utils/pushNotifications';
 import createResponsiveStyleSheet from '../utils/responsiveStyleSheet';
 import { scale as scaleSize } from '../utils/scale';
 import { useTranslation } from 'react-i18next';
@@ -1103,6 +1104,15 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
         });
       if (error) throw error;
       Alert.alert("Success", "Reposted successfully!");
+      if (activeItem.user_id && activeItem.user_id !== currentUserId) {
+        sendPushNotificationTrigger(
+          activeItem.user_id,
+          currentUserId,
+          "",
+          "",
+          { type: 'repost', postId: targetPostId }
+        );
+      }
     } catch (err) {
       console.error("Repost failed:", err.message);
       Alert.alert("Error", "Failed to repost: " + err.message);
@@ -1197,6 +1207,16 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
           like: (prev.like || 0) + 1
         }));
         setTotalReactions(prev => prev + 1);
+
+        if (activeItem.user_id && activeItem.user_id !== currentUserId) {
+          sendPushNotificationTrigger(
+            activeItem.user_id,
+            currentUserId,
+            "",
+            "",
+            { type: 'reaction', reactionType: 'like', postId: targetPostId }
+          );
+        }
       }
     } catch (err) {
       console.error("Error toggling like:", err.message);
@@ -1218,6 +1238,16 @@ const Feed = ({ item, initialPhotoViewerVisible = false, onClosePhotoViewer, onP
         }, { onConflict: 'post_id,user_id' });
 
       if (error) throw error;
+
+      if (activeItem.user_id && activeItem.user_id !== currentUserId) {
+        sendPushNotificationTrigger(
+          activeItem.user_id,
+          currentUserId,
+          "",
+          "",
+          { type: 'reaction', reactionType: type, postId: targetPostId }
+        );
+      }
 
       setMyReaction(type);
       setReactionCounts(prev => {

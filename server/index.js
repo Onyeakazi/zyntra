@@ -201,6 +201,154 @@ app.post('/api/auth/forgot-password', async (req, res) => {
   }
 });
 
+// API Endpoint to send push notifications
+app.post('/api/notifications/send', async (req, res) => {
+  const { receiverId, senderId, body, title, data } = req.body;
+
+  if (!receiverId) {
+    return res.status(400).json({ success: false, message: "receiverId is required" });
+  }
+
+  // Prevent sending notifications to oneself
+  if (senderId && receiverId === senderId) {
+    return res.status(200).json({ success: true, message: "Skipping notification: sender and receiver are the same user" });
+  }
+
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error("Missing Supabase configuration on backend server env");
+    return res.status(500).json({ success: false, message: "Server configuration error" });
+  }
+
+  try {
+    // 1. Fetch sender's full name if senderId is provided and not system
+    let senderName = "Someone";
+    if (senderId && senderId !== 'system') {
+      try {
+        const userRes = await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${senderId}&select=full_name`, {
+          headers: {
+            'apikey': supabaseAnonKey,
+            'Authorization': `Bearer ${supabaseAnonKey}`
+          }
+        });
+        if (userRes.ok) {
+          const users = await userRes.json();
+          if (users && users.length > 0) {
+            senderName = users[0].full_name || "Someone";
+          }
+        }
+      } catch (e) {
+        console.error("Error fetching sender details:", e);
+      }
+    } else if (senderId === 'system') {
+      senderName = "System";
+    }
+
+    // 2. Fetch receiver's push tokens
+    let pushTokens = [];
+    try {
+      const tokenRes = await fetch(`${supabaseUrl}/rest/v1/user_push_tokens?user_id=eq.${receiverId}&select=push_token`, {
+        headers: {
+          'apikey': supabaseAnonKey,
+          'Authorization': `Bearer ${supabaseAnonKey}`
+        }
+      });
+      if (tokenRes.ok) {
+        const tokensData = await tokenRes.json();
+        pushTokens = tokensData
+          .map(t => t.push_token)
+          .filter(t => typeof t === 'string' && t.startsWith('ExponentPushToken'));
+      }
+    } catch (e) {
+      console.error("Error fetching push tokens:", e);
+      return res.status(500).json({ success: false, message: "Failed to fetch recipient tokens" });
+    }
+
+    if (pushTokens.length === 0) {
+      console.log(`No registered push tokens found for receiver ID: ${receiverId}`);
+      return res.status(200).json({ success: true, message: "No push tokens registered for this user" });
+    }
+
+    // 3. Construct Notification Title and Body based on type
+    const type = data?.type;
+    let notifTitle = title || "Zyntra";
+    let notifBody = body || "";
+
+    if (type === 'chat') {
+      notifTitle = senderName;
+      notifBody = body || "Sent a message";
+    } else if (type === 'connection_request') {
+      notifTitle = "New Connection Request 🤝";
+      notifBody = `${senderName} sent you a connection request.`;
+    } else if (type === 'connection_accepted') {
+      notifTitle = "Connection Accepted 🎉";
+      notifBody = `${senderName} accepted your connection request.`;
+    } else if (type === 'story_reaction') {
+      notifTitle = "Story Reaction ❤️";
+      notifBody = `${senderName} reacted ${body || '❤️'} to your story.`;
+    } else if (type === 'reaction') {
+      notifTitle = "New Reaction 👍";
+      notifBody = `${senderName} reacted to your post.`;
+    } else if (type === 'comment') {
+      notifTitle = "New Comment 💬";
+      notifBody = `${senderName} commented on your post: "${body}"`;
+    } else if (type === 'reply') {
+      notifTitle = "New Reply 💬";
+      notifBody = `${senderName} replied to your comment: "${body}"`;
+    } else if (type === 'repost') {
+      notifTitle = "Post Shared 🔁";
+      notifBody = `${senderName} shared your post.`;
+    } else if (type === 'mention') {
+      notifTitle = "Mentioned You 🏷️";
+      notifBody = `${senderName} mentioned you in a comment.`;
+    } else {
+      if (senderName && senderName !== "Someone") {
+        notifBody = `${senderName}: ${body}`;
+      }
+    }
+
+    // Limit body preview length
+    if (notifBody.length > 150) {
+      notifBody = notifBody.substring(0, 147) + "...";
+    }
+
+    // 4. Send notification payload to Expo API
+    const messages = pushTokens.map(token => ({
+      to: token,
+      sound: 'default',
+      title: notifTitle,
+      body: notifBody,
+      data: data || {},
+      badge: 1
+    }));
+
+    const expoRes = await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Accept-Encoding': 'gzip, deflate',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(messages),
+    });
+
+    if (!expoRes.ok) {
+      const errorText = await expoRes.text();
+      console.error("Expo API Error:", errorText);
+      return res.status(502).json({ success: false, message: "Expo notification delivery failed" });
+    }
+
+    const expoData = await expoRes.json();
+    console.log(`Push notifications sent successfully to ${pushTokens.length} devices for user ${receiverId}`);
+    return res.status(200).json({ success: true, tickets: expoData.data });
+  } catch (error) {
+    console.error("Internal error sending notification:", error);
+    return res.status(500).json({ success: false, message: error.message || "Failed to process push notification" });
+  }
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Zyntra Auth Server listening on port ${PORT}`);

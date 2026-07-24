@@ -20,6 +20,7 @@ import Search from "../../assets/vectors/search.svg";
 import COLORS from '../../constants/colors';
 import { supabase } from '../../lib/supabase';
 import { auth } from '../../config/firebase';
+import { sendPushNotificationTrigger } from '../../utils/pushNotifications';
 import { useState, useCallback, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
@@ -227,6 +228,15 @@ const AddFriends = () => {
             [targetUser.id]: 'pending'
           }));
           Alert.alert("Request Sent", `Connection request sent to ${targetUser.full_name}!`);
+
+          // Trigger push notification to target user
+          sendPushNotificationTrigger(
+            targetUser.id,
+            user.uid,
+            "",
+            "",
+            { type: 'connection_request', senderId: user.uid }
+          );
         }
       }
     } catch (err) {

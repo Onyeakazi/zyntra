@@ -1,4 +1,4 @@
-import { Stack, Tabs, useSegments } from "expo-router";
+import { Stack, Tabs, useSegments, router } from "expo-router";
 import House from "../../assets/vectors/House.svg";
 import AddUser from "../../assets/vectors/addUser.svg";
 import Message from "../../assets/vectors/send.svg";
@@ -14,6 +14,8 @@ import TYPOGRAPHY from "../../constants/typography";
 import Svg, { Path, Circle } from "react-native-svg";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Notifications from 'expo-notifications';
+import { registerForPushNotificationsAsync, savePushTokenToDB } from '../../utils/pushNotifications';
 
 const TabLayout = () => {
     const insets = useSafeAreaInsets();
@@ -144,6 +146,13 @@ const TabLayout = () => {
                 fetchRequestCount(user);
                 fetchNotificationCount(user);
                 fetchUnreadMessagesCount(user);
+
+                // Register for push notifications
+                registerForPushNotificationsAsync().then(token => {
+                    if (token) {
+                        savePushTokenToDB(token);
+                    }
+                });
 
                 if (channel) {
                     await supabase.removeChannel(channel);
@@ -374,6 +383,43 @@ const TabLayout = () => {
             if (userInboxChannel) {
                 supabase.removeChannel(userInboxChannel);
             }
+        };
+    }, []);
+
+    useEffect(() => {
+        // Foreground notifications listener
+        const foregroundSubscription = Notifications.addNotificationReceivedListener(notification => {
+            console.log("[Push] Notification received in foreground:", notification);
+        });
+
+        // Clicked notifications response listener
+        const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
+            console.log("[Push] Notification clicked/opened:", response);
+            const data = response.notification.request.content.data;
+            if (!data) return;
+
+            // Route based on notification type
+            if (data.type === 'chat' && data.conversationId) {
+                router.push({
+                    pathname: "/chat",
+                    params: { conversationId: data.conversationId }
+                });
+            } else if (data.type === 'connection_request' || data.type === 'connection_accepted') {
+                router.push({
+                    pathname: "/profile",
+                    params: { userId: data.senderId }
+                });
+            } else if (data.postId) {
+                router.push({
+                    pathname: "/comments",
+                    params: { postId: data.postId }
+                });
+            }
+        });
+
+        return () => {
+            foregroundSubscription.remove();
+            responseSubscription.remove();
         };
     }, []);
 

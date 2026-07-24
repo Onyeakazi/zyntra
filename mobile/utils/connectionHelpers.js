@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-
+import { sendPushNotificationTrigger } from './pushNotifications';
 /**
  * Accepts a pending connection request and sets up a Facebook-style system message
  * in their conversation.
@@ -141,6 +141,15 @@ export const acceptConnectionInDB = async (userAId, userBId) => {
   } catch (broadcastErr) {
     console.error("Error sending connection acceptance broadcasts:", broadcastErr.message);
   }
+
+  // Trigger push notification to userAId (the requester)
+  sendPushNotificationTrigger(
+    userAId,
+    userBId,
+    "",
+    "",
+    { type: 'connection_accepted', senderId: userBId }
+  );
 
   return { conversationId, connData: finalConnData };
 };

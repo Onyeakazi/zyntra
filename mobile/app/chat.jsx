@@ -23,6 +23,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { auth } from '../config/firebase';
+import { sendPushNotificationTrigger } from '../utils/pushNotifications';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import COLORS from '../constants/colors';
@@ -625,6 +626,15 @@ const ChatRoom = () => {
           if (prev.some(m => m.id === insertedMsg.id)) return prev;
           return [insertedMsg, ...prev]; // Prepend new message since flatlist is inverted
         });
+
+        // Trigger push notification to recipient
+        sendPushNotificationTrigger(
+          recipient.id,
+          currentUserId,
+          messageContent || "Sent an image",
+          "",
+          { type: 'chat', conversationId: activeConvId }
+        );
 
         // 4. Update parent conversation info in database and await it first (prevents race condition)
         try {
