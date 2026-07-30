@@ -24,7 +24,7 @@ const ScreenWrapper = ({ children }) => {
       </View>
 
       {/* Content */}
-      <View style={[styles.content, { paddingTop: insets.top }]}>
+      <View style={[styles.content, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         {children}
       </View>
     </View>

@@ -1,4 +1,4 @@
-import { Image, Pressable, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native'
+import { Image, Pressable, Text, TextInput, TouchableOpacity, View, Alert, ScrollView } from 'react-native'
 import createResponsiveStyleSheet from '../../utils/responsiveStyleSheet'
 import { router } from 'expo-router'
 import Constants, { ExecutionEnvironment } from 'expo-constants';
@@ -385,19 +385,23 @@ const Login = () => {
     };
 
   return (
-    <View style={{flex: 1}}>
-        <View style={{paddingVertical: 30}}>
+    <ScrollView 
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+    >
+        <View style={{ paddingTop: 15, paddingBottom: 15 }}>
             <Image 
                 source={Logo}
                 style={{
                     width: "100%",
-                    height: 90,
+                    height: 75,
                     resizeMode: "contain"
                 }}
             />
         </View>
 
-        <View style={{flex: 1}}>
+        <View style={{ flex: 1 }}>
             {/* Tab buttons — each has its own bottom border; blue when active, transparent otherwise */}
             <View style={[styles.authBtns, { borderBottomWidth: 2, borderBottomColor: '#C4C4C4' }]}>
                 <TouchableOpacity 
@@ -463,7 +467,7 @@ const Login = () => {
                         </View>
                     </View>
 
-                    <View style={{marginTop: 40}}>
+                    <View style={{marginTop: 25}}>
                         <Button 
                             text={t('onboarding.signIn')}
                             action={handleSignin}
@@ -491,7 +495,7 @@ const Login = () => {
                         />
                     </View>
 
-                    <View style={{flexDirection: "row", justifyContent: "center", marginTop: 30}}>
+                    <View style={{flexDirection: "row", justifyContent: "center", marginTop: 20}}>
                         <Text style={{fontFamily: TYPOGRAHPY.medium, fontSize: 16, color: "#656F78"}}>
                             {t('auth.dontHaveAccount') + " "}
                             <Text onPress={() => setActive("signup")} style={{ color: "#5398F1" }}>
@@ -502,7 +506,7 @@ const Login = () => {
                 </View>
             ) : (
                 <View>
-                    <View style={styles.inputField}>
+                    <View style={[styles.inputField, { marginTop: 15 }]}>
 
                         <FloatingInput
                             placeholder={t('settings.selectLanguage') === 'Select Language' ? 'Full Name' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Nombre completo' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Nom complet' : 'Nome completo'}
@@ -552,7 +556,7 @@ const Login = () => {
                         <Text style={{color: "red", marginTop: 5, fontFamily: TYPOGRAHPY.regular}}>{error}</Text>
                     ) : null}
 
-                    <View style={{marginTop: 40}}>
+                    <View style={{marginTop: 20}}>
                         <Button 
                             text={t('settings.selectLanguage') === 'Select Language' ? 'Join Now' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Registrarse' : t('settings.selectLanguage') === 'Choisir la langue' ? 'S\'inscrire' : 'Cadastrar-se'}
                             action={handleSignup}
@@ -571,7 +575,7 @@ const Login = () => {
                         <View style={{flex: 1, height: 1, backgroundColor: "#C4C4C4"}}/>
                     </View>
 
-                    <View style={{flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 20, marginTop: 15}}>
+                    <View style={{flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 20, marginTop: 12}}>
                         <Button 
                             text={"Google"}
                             bgColor={"#FFFFFF"}
@@ -582,7 +586,7 @@ const Login = () => {
                         />
                     </View>
 
-                    <View style={{flexDirection: "row", justifyContent: "center", marginTop: 30}}>
+                    <View style={{flexDirection: "row", justifyContent: "center", marginTop: 18}}>
                         <Text style={{fontFamily: TYPOGRAHPY.medium, fontSize: 16, color: "#656F78"}}>
                             {t('settings.selectLanguage') === 'Select Language' ? 'Already have an Account ' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? '¿Ya tienes una cuenta? ' : t('settings.selectLanguage') === 'Choisir la langue' ? 'Vous avez déjà un compte ? ' : 'Já tem uma conta? '}
                             <Text onPress={() => setActive("signin")} style={{ color: "#5398F1" }}>
@@ -591,7 +595,7 @@ const Login = () => {
                         </Text>
                     </View>
 
-                    <View style={{ marginTop: 25, alignItems: 'center', paddingHorizontal: 20, marginBottom: 20 }}>
+                    <View style={{ marginTop: 18, alignItems: 'center', paddingHorizontal: 20, marginBottom: 25 }}>
                         <Text style={{ fontFamily: TYPOGRAHPY.regular, fontSize: 12, color: '#9CA3AF', textAlign: 'center', lineHeight: 18 }}>
                             {t('settings.selectLanguage') === 'Select Language' ? 'By joining, you agree to our ' : t('settings.selectLanguage') === 'Seleccionar Idioma' ? 'Al unirte, aceptas nuestros ' : t('settings.selectLanguage') === 'Choisir la langue' ? 'En vous inscrivant, vous acceptez nos ' : 'Ao se registrar, você concorda com nossos '}
                             <Text 
@@ -613,7 +617,7 @@ const Login = () => {
                 </View>
             )}
         </View>
-    </View>
+    </ScrollView>
   )
 }
 

@@ -1,7 +1,13 @@
 import { Stack } from 'expo-router';
 import '../lib/i18n';
-import { ActivityIndicator, View, Alert } from 'react-native';
+import { ActivityIndicator, View, Alert, LogBox } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+// Ignore the SDK 53 Expo Go push notifications console error during development
+LogBox.ignoreLogs([
+  'expo-notifications: Android Push notifications',
+  'Android Push notifications (remote notifications) functionality'
+]);
 import {
   Inter_400Regular,
   Inter_500Medium,

@@ -15,6 +15,7 @@
     },
     "android": {
       "package": "com.godswill147.zyntra",
+      "googleServicesFile": "./google-services.json",
       "minSdkVersion": 24,
       "targetSdkVersion": 34,
       "adaptiveIcon": {

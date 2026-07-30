@@ -9,7 +9,8 @@ import {
   RefreshControl,
   Modal,
   DeviceEventEmitter,
-  Alert
+  Alert,
+  StyleSheet
 } from 'react-native';
 import createResponsiveStyleSheet from '../../utils/responsiveStyleSheet';
 import ScreenWrapper from '../../components/ScreenWrapper';
@@ -24,6 +25,7 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import TYPOGRAPHY from '../../constants/typography';
 import COLORS from '../../constants/colors';
+import { scale } from '../../utils/scale';
 import Svg, { Circle, Line, Path, Polyline } from 'react-native-svg';
 
 // Custom inline SVG icons
@@ -581,7 +583,7 @@ const MessageScreen = () => {
                 : require("../../assets/images/default.png")
             }
             style={[
-              styles.avatar,
+              fixedMessageStyles.avatar,
               activeStoryGroups.some(g => g.userId === recipient.id) ? styles.activeAvatarWithStory : null
             ]}
           />
@@ -633,7 +635,7 @@ const MessageScreen = () => {
                           ? { uri: recipient.avatar_url }
                           : require("../../assets/images/default.png")
                       }
-                      style={styles.tinyReadAvatarCard}
+                      style={fixedMessageStyles.tinyReadAvatarCard}
                     />
                   ) : (
                     <SentCheckIcon size={12} filled={recipient && onlineUserIds.includes(recipient.id)} />
@@ -657,7 +659,22 @@ const MessageScreen = () => {
       status_note: myStatusNote
     });
   }
-  const onlineConnections = connections.filter(c => presentUserIds.includes(c.id) || !!onlineUserNotes[c.id]);
+  // Combine connections and conversation recipients into a unique list of contacts by ID
+  const allContactsMap = new Map();
+  connections.forEach(c => allContactsMap.set(c.id, c));
+  conversations.forEach(conv => {
+    const recipient = conv.user_1 === currentUserId ? conv.user2 : conv.user1;
+    if (recipient && !allContactsMap.has(recipient.id)) {
+      allContactsMap.set(recipient.id, {
+        id: recipient.id,
+        full_name: recipient.full_name,
+        avatar_url: recipient.avatar_url,
+        username: recipient.username
+      });
+    }
+  });
+  const allContacts = Array.from(allContactsMap.values());
+  const onlineConnections = allContacts.filter(c => onlineUserIds.includes(c.id) || !!onlineUserNotes[c.id]);
   onlineConnections.forEach(c => {
     activeSliderData.push({
       id: c.id,
@@ -738,7 +755,7 @@ const MessageScreen = () => {
                             : require("../../assets/images/default.png")
                         }
                         style={[
-                          styles.activeAvatar,
+                          fixedMessageStyles.activeAvatar,
                           isMe ? styles.myActiveAvatar : null,
                           hasActiveStory ? styles.activeAvatarWithStory : null
                         ]}
@@ -1109,13 +1126,7 @@ const styles = createResponsiveStyleSheet({
     alignItems: 'center',
   },
 
-  avatar: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
+
 
   cardContent: {
     flex: 1,
@@ -1176,13 +1187,7 @@ const styles = createResponsiveStyleSheet({
     alignItems: 'center',
   },
 
-  tinyReadAvatarCard: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 0.5,
-    borderColor: '#E5E7EB',
-  },
+
 
   emptyContainer: {
     alignItems: 'center',
@@ -1234,13 +1239,7 @@ const styles = createResponsiveStyleSheet({
     position: 'relative',
   },
 
-  activeAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-  },
+
 
   greenDotIndicator: {
     position: 'absolute',
@@ -1461,5 +1460,32 @@ const styles = createResponsiveStyleSheet({
     color: '#FFFFFF',
     fontSize: 14,
     fontFamily: TYPOGRAPHY.semiBold,
+  },
+});
+
+const fixedMessageStyles = StyleSheet.create({
+  avatar: {
+    width: scale(54),
+    height: scale(54),
+    borderRadius: scale(27),
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    resizeMode: 'cover',
+  },
+  activeAvatar: {
+    width: scale(52),
+    height: scale(52),
+    borderRadius: scale(26),
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    resizeMode: 'cover',
+  },
+  tinyReadAvatarCard: {
+    width: scale(14),
+    height: scale(14),
+    borderRadius: scale(7),
+    borderWidth: 0.5,
+    borderColor: '#E5E7EB',
+    resizeMode: 'cover',
   },
 });
